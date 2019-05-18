@@ -1,0 +1,26 @@
+// Warning: Managed by Puppet
+function authRequired() {
+  try {
+    if (db.serverCmdLineOpts().code == 13) {
+      return true;
+    }
+    return false;
+  }
+  catch (err) {
+    return false;
+  }
+}
+
+if (authRequired()) {
+  try {
+    rs.slaveOk()
+    var prev_db = db
+    db = db.getSiblingDB('admin')
+    db.auth('<%= @admin_username %>', '<%= @admin_password %>')
+    db = db.getSiblingDB(prev_db)
+  }
+  catch (err) {
+    // This isn't catching authentication errors as I'd expect...
+    abort('Unknown error')
+  }
+}

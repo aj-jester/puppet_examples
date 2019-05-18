@@ -1,0 +1,11 @@
+---
+version: 5
+defaults:
+  data_hash: yaml_data
+  datadir: data
+
+hierarchy:
+  - name: "Normal data: per-node, per-tier/role, sudo, common"
+    paths:
+      - "location/%{::fqdn_location}.yaml"
+      - "gems/common/rh_ruby24.yaml"

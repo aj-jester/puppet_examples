@@ -1,0 +1,963 @@
+#!/usr/bin/perl -w
+# ==============================================================================
+# check_adaptec_raid: Nagios/Icinga plugin to check Adaptec Raid Controller
+# status
+# ------------------------------------------------------------------------------
+# Copyright (c) 2013-2016:
+#   Georg Schoenberger  (gschoenberger@thomas-krenn.com)
+#   Grubhofer Martin    (s1110239013@students.fh-hagenberg.at)
+#   Franz Nemeth
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, see <http://www.gnu.org/licenses/>.
+# ==============================================================================
+use strict;
+use warnings;
+use Getopt::Long qw(:config no_ignore_case);
+
+our $VERBOSITY = 0;
+our $VERSION = '2.2';
+our $NAME = "check_adaptec_raid: Nagios/Icinga plugin to check Adaptec Raid Controller status";
+our $C_TEMP_WARNING = 80;
+our $C_TEMP_CRITICAL = 90;
+our $ZMM_TEMP_WARNING = 60;
+our $ZMM_TEMP_CRITICAL = 75;
+our $CONTROLLER = 1;
+
+use constant {
+  STATE_OK => 0,
+  STATE_WARNING => 1,
+  STATE_CRITICAL => 2,
+  STATE_UNKNOWN => 3,
+};
+
+# Print command line usage to stdout.
+sub displayUsage {
+  print "Usage: \n";
+  print "  [ -h | --help ]
+    Display this help page\n";
+  print "  [ -v | -vv | -vvv | --verbose ]
+    Sets the verbosity level.
+    No -v is the normal single line output for Nagios/Icinga, -v is a
+    more detailed version but still usable in Nagios. -vv is a
+    multiline output for debugging configuration errors or more
+    detailed information. -vvv is for plugin problem diagnosis.
+    For further information please visit:
+        http://nagiosplug.sourceforge.net/developer-guidelines.html#AEN39\n";
+  print "  [ -V --version ]
+    Displays the plugin and, if available, the version of arcconf.\n";
+  print "  [ -C <num> | --controller <num> ]
+    Specifies a controller number, defaults to 1.\n";
+  print "  [ -LD <ids> | --logicaldevice <ids>]
+    Specifies one or more logical devices, defaults to all. Takes either an
+    integer as additional argument or a comma seperated list e.g. '0,1,2'.\n";
+  print "  [ -PD <ids> | --physicaldevice <ids> ]
+    Specifies one or more physical devices, defaults to all. Takes either an
+    integer as additional argument or a comma seperated list e.g. '0,1,2'.\n";
+  print "  [ -Tw <temp> | --temperature-warn <temp> ]
+    Specifies the RAID controller temperature warning threshold, the default
+    threshold is ${C_TEMP_WARNING}C.\n";
+  print "  [ -Tc <temp> | --temperature-critical <temp> ]
+    Specifies the RAID controller temperature critical threshold, the default
+    threshold is ${C_TEMP_CRITICAL}C.\n";
+  print "  [ -ZMMTw <temp> | --zmmtemperature-warn <temp> ]
+    Specifies the ZMM temperature warning threshold, default threshold 
+    is ${ZMM_TEMP_WARNING}C.\n";
+  print "  [ -ZMMTc <temp> | --zmmtemperature-critical <temp> ]
+    Specifies the ZMM temperature critical threshold, default threshold 
+    is ${ZMM_TEMP_CRITICAL}C.\n";
+  print "  [ -p <path> | --path <path>]
+    Specifies the path to arcconf, per default uses the tool 'which' to get 
+    the arcconf path.\n";
+  print "  [ -z <0/1> | --ZMM <0/1> ]
+    Check if a ZMM is present unless '-z 0' is defined. This ensures that for a
+    given controller a ZMM must be present per default.\n";
+    print "  [--nosudo]
+    Turn off using sudo.\n";
+}
+
+# Displays a short Help text for the user
+sub displayHelp {
+  print $NAME."\n";
+  print "Pulgin version: " . $VERSION ."\n";
+  print "Copyright (C) 2013-2015 Thomas-Krenn.AG\n";
+  print "Current updates available at
+    https://github.com/thomas-krenn/check_adaptec_raid.git\n";
+  print "This Nagios/Icinga Plugin checks Adaptec RAID controllers for controller,
+physical device, logical device and ZMM warnings and errors.\n";
+  print "In order for this plugin to work properly you need to add the nagios
+user to your sudoers file (or create a new one in /etc/sudoers.d/). Be aware
+that arcconf requires root privileges.\n";
+  displayUsage();
+  print "Further information about this plugin can be found at:
+    https://www.thomas-krenn.com/de/wiki/Adaptec_RAID_Monitoring_Plugin and
+    https://www.thomas-krenn.com/en/wiki/Adaptec_RAID_Monitoring_Plugin
+Please send an email to the tk-monitoring plugin-user mailing list:
+    tk-monitoring-plugins-user\@lists.thomas-krenn.com
+if you have questions regarding use of this software, to submit patches, or
+suggest improvements. The mailing list archive is available at:
+    http://lists.thomas-krenn.com/pipermail/tk-monitoring-plugins-user
+Example usage:
+* check_adaptec_raid -p /sbin/arcconf
+* check_adaptec_raid -p /sbin/arcconf -C 2\n";
+  exit(STATE_UNKNOWN);
+}
+
+# Prints the name and the version of check_adaptec_raid. If arcconf is
+# available, the version of it is printed also.
+# @param arcconf The path to arcconf command utility
+sub displayVersion {
+  my $arcconf = shift;
+  if(defined($arcconf)){
+    my @arcconfVersion = `$arcconf`;
+    print "arcconf version:\n";
+    print grep /Version/, @arcconfVersion;
+  }
+  exit(STATE_OK);
+}
+
+# Checks if an arcconf call was successfull, i.e. if the return code is 0
+# and 'invalid' is not present in the second line
+# @param output The output of the arcconf command as array
+# @param returnCode The return code of the arcconf call
+# @return 1 on success, 0 if not
+sub checkCommandStatus{
+  my @output = @{(shift)};
+  my $returnCode = shift;
+  if(($output[1] =~ /^Invalid/) || (($returnCode >> 8) != 0)){
+    return 0;
+  }
+  else{
+    return 1;
+  }
+}
+
+# Shows the version information about a controller. Can be used to check if the
+# controller number is a correct one.
+# @param arcconf The path to arcconf command utility
+# @return 1 on success, 0 if not
+sub getControllerVersion{
+  my $arcconf = shift;
+  my @output = `$arcconf GETVERSION $CONTROLLER`;
+  return (checkCommandStatus(\@output, $?));
+}
+
+# Get the status of the raid controller
+# @param arcconf The path to arcconf command utility
+# @param commands_a An array to push the used command to
+# @return A hash, each key a value of the raid controller info
+sub getControllerInfo{
+  my $arcconf = shift;
+  my $commands_a = shift;
+
+  my $command = "$arcconf GETCONFIG $CONTROLLER AD";
+  push @{$commands_a}, $command;
+
+  my %foundController_h;
+  my @output = `$command`;
+  if(checkCommandStatus(\@output, $?)){
+    my $currBlock;
+    foreach my $line(@output){
+      $line =~ s/^\s+|\s+$//g;
+      if($line =~ /^(Controller information|Controller Version Information)/){
+        $currBlock = $1;
+        next;
+      }
+      if(defined($currBlock)){
+        if($line =~ /\:/){
+          my @lineVals = split(':\s', $line);
+          $lineVals[0] =~ s/^\s+|\s+$//g;
+          $lineVals[1] =~ s/^\s+|\s+$//g;
+          $foundController_h{$lineVals[0]} = $lineVals[1];
+        }
+        #If the last value is parsed, reset block
+        if(exists($foundController_h{'Boot Flash'})){
+          undef $currBlock;
+        }
+      }
+    }
+  }
+  else {
+    print "Invalid arcconf command! ($command)\n";
+    exit(STATE_UNKNOWN);
+  }
+  return \%foundController_h;
+}
+
+# Checks the status of the raid controller
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors.
+# @param foundController The hash of controller infos, created by getControllerInfo
+sub getControllerStatus{
+  my @statusLevel_a = @{(shift)};
+  my %foundController = %{(shift)};
+  my $status = '';
+  foreach my $key (%foundController){
+    if($key eq 'Temperature'){
+      $foundController{$key} =~ /^([0-9]+\.?[0-9]+) C/;
+      if(defined($1)){
+        if(!(checkThreshs($1, $C_TEMP_CRITICAL))){
+          $status = 'Critical';
+          push @{$statusLevel_a[2]}, 'CTR_Temperature';
+        }
+        elsif(!(checkThreshs($1, $C_TEMP_WARNING))){
+          $status = 'Warning' unless $status eq 'Critical';
+          push @{$statusLevel_a[1]}, 'CTR_Temperature';
+        }
+        $statusLevel_a[3]->{'CTR_Temperature'} = $1;
+      }
+    }
+    elsif($key eq 'Controller Status'){
+      if($foundController{$key} ne 'Optimal'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, 'CTR_State';
+        $statusLevel_a[3]->{'CTR_State'} = $foundController{$key};
+      }
+    }
+    elsif($key eq 'Defunct disk drive count'){
+      if($foundController{$key} != 0){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, 'CTR_Defunct_drives';
+        $statusLevel_a[3]->{'CTR_Defunct_drives'} = $foundController{$key};
+      }
+    }
+    elsif($key eq 'Logical devices/Failed/Degraded'){
+      $foundController{$key} =~ /^([0-9]+)\/([0-9]+)\/([0-9]+)$/;
+      if(defined($2) && defined($3)){
+        if($2 != 0 || $3 != 0){
+          $status = 'Critical';
+          push @{$statusLevel_a[2]}, 'CTR_Failed_devices';
+          $statusLevel_a[3]->{'CTR_Failed_devices'} = $foundController{$key};
+        }
+      }
+    }
+  }
+  if($status ne ''){
+    if($status eq 'Warning'){
+      if(${$statusLevel_a[0]} ne 'Critical'){
+        ${$statusLevel_a[0]} = 'Warning';
+      }
+    }
+    else{
+      ${$statusLevel_a[0]} = 'Critical';
+    }
+    $statusLevel_a[3]->{'CTR_Status'} = $status;
+  }
+  else{
+    $statusLevel_a[3]->{'CTR_Status'} = 'OK';
+  }
+}
+
+# Checks which logical devices are present for the given controller and parses
+# the logical devices to a list of hashes. Each hash represents a logical device
+# with its values from the output.
+# @param arcconf The path to arcconf command utility
+# @param logDevices If given, a list of desired logical device numbers
+# @param commands_a An array to push the used command to
+# @return A list of hashes, each hash is one logical device.
+sub getLogicalDevices{
+  my $arcconf = shift;
+  my @logDevices = @{(shift)};
+  my $commands_a = shift;
+
+  my $command = "$arcconf GETCONFIG $CONTROLLER LD";
+  push @{$commands_a}, $command;
+  
+  # Check if a desired list of LDs should be used
+  my %usedLD_h;
+  if(@logDevices){
+    %usedLD_h = map {$_ => 1} @logDevices;
+  }
+  
+  my @foundDevs;
+  my @output = `$command`;
+  if(checkCommandStatus(\@output, $?)) {
+    my $currBlock;
+    my $line_ref;
+    foreach my $line(@output){
+      my @splittedLine;
+      if($line =~ /^Logical device number ([0-9]+)$/){
+        if(!@logDevices || exists $usedLD_h{$1}){
+          $currBlock = "ld".$1;
+          $line_ref = {};
+          next;
+        }
+      }
+      if(defined($currBlock)){
+        if($line =~ /\:/){
+          my @lineVals = split(':\s', $line);
+          $lineVals[0] =~ s/^\s+|\s+$//g;
+          $lineVals[1] =~ s/^\s+|\s+$//g;
+          $line_ref->{$lineVals[0]} = $lineVals[1];
+        }
+        #If the last value is parsed, reset block
+        if(exists($line_ref->{'Power settings'})){
+          $line_ref->{'ld'} = $currBlock;
+          push @foundDevs, $line_ref;
+          undef $currBlock;
+          undef $line_ref;
+        }
+      }
+    }
+  }
+  else {
+    print "Invalid arcconf command! ($command)\n";
+    exit(STATE_UNKNOWN);
+  }
+  # Check if all user defined LDs were found
+  if(@logDevices && (scalar(@foundDevs) != scalar(@logDevices))){
+    print "Invalid logical device(s) specified!\n";
+    exit(STATE_UNKNOWN);
+  }
+  return \@foundDevs;
+}
+
+# Checks the status of the logical devices.
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors.
+# @param foundLDs The array of logical devices, created by getLogicalDevices
+sub getLDStatus{
+  my @statusLevel_a = @{(shift)};
+  my @foundLDs = @{(shift)};
+  my $status = '';
+  foreach my $LD (@foundLDs){
+    if(exists($LD->{'Status of logical device'})){
+      if($LD->{'Status of logical device'} ne 'Optimal'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, $LD->{'ld'}.'_State';
+        $statusLevel_a[3]->{$LD->{'ld'}.'_State'} = $LD->{'Status of logical device'};
+      }
+    }
+    if(exists($LD->{'Failed stripes'})){
+      if($LD->{'Failed stripes'} ne 'No'){
+        $status = 'Warning' unless $status eq 'Critical';
+        push @{$statusLevel_a[1]}, $LD->{'ld'}.'_Failed_Stripes';
+        $statusLevel_a[3]->{$LD->{'ld'}.'_Failed_Stripes'} = $LD->{'Failed stripes'};
+      }
+    }
+  }
+  if($status ne ''){
+    if($status eq 'Warning'){
+      if(${$statusLevel_a[0]} ne 'Critical'){
+        ${$statusLevel_a[0]} = 'Warning';
+      }
+    }
+    else{
+      ${$statusLevel_a[0]} = 'Critical';
+    }
+    $statusLevel_a[3]->{'LD_Status'} = $status;
+  }
+  else{
+    if(!exists($statusLevel_a[3]->{'LD_Status'})){
+      $statusLevel_a[3]->{'LD_Status'} = 'OK';
+    }
+  }
+}
+
+# Checks which physical devices are present for the given controller and parses
+# the physical devices to a list of hashes. Each hash represents a physical device
+# with its values from the output.
+# @param arcconf The path to arcconf command utility
+# @param physDevices If given, a list of desired physical device numbers
+# @param commands_a An array to push the used command to
+# @return A list of hashes, each hash is one physical device.
+sub getPhysicalDevices{
+  my $arcconf = shift;
+  my @physDevices = @{(shift)};
+  my $commands_a = shift;
+
+  my $command = "$arcconf GETCONFIG $CONTROLLER PD";
+  push @{$commands_a}, $command;
+  
+  # Check if a desired list of PDs should be used
+  my %usedPD_h;
+  if(@physDevices){
+    %usedPD_h = map {$_ => 1} @physDevices;
+  }
+  
+  my @foundDevs;
+  my @output = `$command`;
+  if(checkCommandStatus(\@output, $?)) {
+    my $currBlock;
+    my $line_ref;
+    foreach my $line(@output){
+      my @splittedLine;
+      if($line =~ /^\s+Device \#([0-9]+)$/){
+        if(!@physDevices || exists $usedPD_h{$1}){
+          $currBlock = "pd".$1;
+          $line_ref = {};
+          next;
+        }
+      }
+      if(defined($currBlock)){
+        if($line =~ /\:/){
+          my @lineVals = split(':\s', $line);
+          $lineVals[0] =~ s/^\s+|\s+$//g;
+          $lineVals[1] =~ s/^\s+|\s+$//g;
+          $line_ref->{$lineVals[0]} = $lineVals[1];
+        }
+        #If it is an eclosure service device, skip it
+        if(exists($line_ref->{'Enclosure ID'})){
+          undef $currBlock;
+          undef $line_ref;
+          next;
+        }
+        #If the last value is parsed, reset block
+        if(exists($line_ref->{'NCQ status'}) || exists($line_ref->{'MaxIQ Cache Assigned'})){
+          $line_ref->{'pd'} = $currBlock;
+          push @foundDevs, $line_ref;
+          undef $currBlock;
+          undef $line_ref;
+        }
+      }
+    }
+  }
+  else {
+    print "Invalid arcconf command! ($command)\n";
+    exit(STATE_UNKNOWN);
+  }
+  # Check if all user defined PDs were found
+  if(@physDevices && (scalar(@foundDevs) != scalar(@physDevices))){
+    print "Invalid physical device(s) specified!\n";
+    exit(STATE_UNKNOWN);
+  }
+  return \@foundDevs;
+}
+
+# Checks the status of the physical devices.
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors.
+# @param foundPDs The array of physical devices, created by getPhysicalDevices
+sub getPDStatus{
+  my @statusLevel_a = @{(shift)};
+  my @foundPDs = @{(shift)};
+  my $status = '';
+  foreach my $PD (@foundPDs){
+    if(exists($PD->{'State'})){
+      if(!($PD->{'State'} =~ /^(Online|Global Hot-Spare|Dedicated Hot-Spare|Hot Spare|Ready|Online \(JBOD\)|Raw \(Pass Through\))$/)){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, $PD->{'pd'}.'_State';
+        $statusLevel_a[3]->{$PD->{'pd'}.'_State'} = $PD->{'State'};
+      }
+    }
+    if(exists($PD->{'S.M.A.R.T.'})){
+      if($PD->{'S.M.A.R.T.'} ne 'No'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, $PD->{'pd'}.'_SMART_flag';
+        $statusLevel_a[3]->{$PD->{'pd'}.'_SMART_flag'} = $PD->{'S.M.A.R.T.'};
+      }
+    }
+    if(exists($PD->{'S.M.A.R.T. warnings'})){
+      if($PD->{'S.M.A.R.T. warnings'} ne '0'){
+        $status = 'Warning' unless $status eq 'Critical';
+        push @{$statusLevel_a[1]}, $PD->{'pd'}.'_SMART_warnings';
+        $statusLevel_a[3]->{$PD->{'pd'}.'_SMART_warnings'} = $PD->{'S.M.A.R.T. warnings'};
+      }
+    }
+    if(exists($PD->{'Power State'})){
+      if($PD->{'Power State'} ne 'Full rpm'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, $PD->{'pd'}.'_Power_state';
+        $statusLevel_a[3]->{$PD->{'pd'}.'_Power_state'} = $PD->{'Power State'};
+      }
+    }
+    if(exists($PD->{'Failed logical device segments'})){
+      if($PD->{'Failed logical device segments'} ne 'False'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, $PD->{'pd'}.'_Failed_segments';
+        $statusLevel_a[3]->{$PD->{'pd'}.'_Failed_segments'} = $PD->{'Failed logical device segments'};
+      }
+    }
+  }
+  if($status ne ''){
+    if($status eq 'Warning'){
+      if(${$statusLevel_a[0]} ne 'Critical'){
+        ${$statusLevel_a[0]} = 'Warning';
+      }
+    }
+    else{
+      ${$statusLevel_a[0]} = 'Critical';
+    }
+    $statusLevel_a[3]->{'PD_Status'} = $status;
+  }
+  else{
+    if(!exists($statusLevel_a[3]->{'PD_Status'})){
+      $statusLevel_a[3]->{'PD_Status'} = 'OK';
+    }
+  }
+}
+
+# Checks the status of the ZMM, parses 'GETCONFIG AD' for the given
+# controller.
+# @param arcconf The path to arcconf command utility
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors.
+# @param commands_a An array to push the used command to
+sub getZMMStatus {
+  my $arcconf = shift;
+  my @statusLevel_a = @{(shift)};
+  my $commands_a = shift;
+  
+  my $command = "$arcconf GETCONFIG $CONTROLLER AD";
+  push @{$commands_a}, $command;
+
+  my $status = '';
+  my @output = `$command`;
+  if(checkCommandStatus(\@output, $?)) {
+    my $currBlock;
+    my %foundZMM_h;
+    foreach my $line (@output) {
+      $line =~ s/^\s+|\s+$//g;
+      if($line =~ /^(Controller Cache Backup)/ || $line =~ /^(Controller ZMM Information)/){
+        $currBlock = $1;
+        next;
+      }
+      if(defined($currBlock)){
+        if($line =~ /\:/){
+          my @lineVals = split(':\s', $line);
+          $lineVals[0] =~ s/^\s+|\s+$//g;
+          $lineVals[1] =~ s/^\s+|\s+$//g;
+          $foundZMM_h{$lineVals[0]} = $lineVals[1];
+        }
+      }
+    }
+    if(exists($foundZMM_h{'Overall Backup Unit Status'})){
+      if($foundZMM_h{'Overall Backup Unit Status'} ne 'Ready'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, 'ZMM_State';
+        $statusLevel_a[3]->{'ZMM_State'} = $foundZMM_h{'Overall Backup Unit Status'};
+      }
+    }
+    elsif(exists($foundZMM_h{'Status'})){
+      if($foundZMM_h{'Status'} ne 'Ready' && $foundZMM_h{'Status'} ne 'ZMM Optimal'){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, 'ZMM_State';
+        $statusLevel_a[3]->{'ZMM_State'} = $foundZMM_h{'Status'};
+      }
+    }
+    if(exists($foundZMM_h{'Non-Volatile Storage Status'})){
+      if($foundZMM_h{'Non-Volatile Storage Status'} ne 'Ready'){
+        $status = 'Warning' unless $status eq 'Critical';
+        push @{$statusLevel_a[1]}, 'ZMM_NVS_Status';
+        $statusLevel_a[3]->{'ZMM_NVS_Status'} = $foundZMM_h{'Non-Volatile Storage Status'};
+      }
+    }
+    if(exists($foundZMM_h{'Supercap Status'})){
+      if($foundZMM_h{'Supercap Status'} ne 'Ready'){
+        $status = 'Warning' unless $status eq 'Critical';
+        push @{$statusLevel_a[1]}, 'ZMM_SCap_Status';
+        $statusLevel_a[3]->{'ZMM_SCap_Status'} = $foundZMM_h{'Supercap Status'};
+      }
+    }
+    if(exists($foundZMM_h{'Current Temperature'})){
+      $foundZMM_h{'Current Temperature'} =~ /([0-9]+) deg C$/;
+      if(!(checkThreshs($1, $ZMM_TEMP_CRITICAL))){
+        $status = 'Critical';
+        push @{$statusLevel_a[2]}, 'ZMM_Temperature';
+      }
+      elsif(!(checkThreshs($1, $ZMM_TEMP_WARNING))){
+        $status = 'Warning' unless $status eq 'Critical';
+        push @{$statusLevel_a[1]}, 'ZMM_Temperature';
+      }
+      $statusLevel_a[3]->{'ZMM_Temperature'} = $1;
+    }
+    if(exists($foundZMM_h{'Voltage(Present/Max)'})){
+      $foundZMM_h{'Voltage(Present/Max)'} =~ /(^[0-9]+) mV/;
+      $statusLevel_a[3]->{'ZMM_Voltage_Present'} = $1;
+    }
+    if(exists($foundZMM_h{'Health'})){
+      $foundZMM_h{'Health'} =~ /(^[0-9]+) percent/;
+      $statusLevel_a[3]->{'ZMM_Health'} = $1;
+    }
+    if(exists($foundZMM_h{'Charge Level'})){
+      $foundZMM_h{'Charge Level'} =~ /(^[0-9]+) percent/;
+      $statusLevel_a[3]->{'ZMM_Charge_Level'} = $1;
+    }
+    if($status ne ''){
+      if($status eq 'Warning'){
+        if(${$statusLevel_a[0]} ne 'Critical'){
+          ${$statusLevel_a[0]} = 'Warning';
+        }
+      }
+      else{
+        ${$statusLevel_a[0]} = 'Critical';
+      }
+      $statusLevel_a[3]->{'ZMM_Status'} = $status;
+    }
+    else{
+      $statusLevel_a[3]->{'ZMM_Status'} = 'OK';
+    }
+  }
+  else {
+    print "Invalid arcconf command! ($command)\n";
+    exit(STATE_UNKNOWN);
+  }
+}
+
+# Checks if a ZMM is present
+# @param arcconf The path to arcconf command utility
+# @return 1 if present, 0 if not
+sub checkZMMPresent{
+  my $arcconf = shift;
+  my $failed = 0;
+  my @output = `$arcconf GETCONFIG $CONTROLLER AD`;
+  if(checkCommandStatus(\@output, $?)){
+    $failed = grep /ZMM Failed/, @output;
+  }
+  if($failed){
+    return 0;
+  }
+  else{ return 1; }
+}
+
+# Checks if a given value is in a specified range, the range must follow the
+# nagios development guidelines:
+# http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
+# @param value The given value to check the pattern for
+# @param pattern The pattern specifying the threshold range, e.g. '10:', '@10:20'
+# @return 0 if the value is outside the range, 1 if the value satisfies the range
+sub checkThreshs{
+  my $value = shift;
+  my $pattern = shift;
+  if($pattern =~ /(^[0-9]+$)/){
+    if($value < 0 || $value > $1){
+      return 0;
+    }
+  }
+  elsif($pattern =~ /(^[0-9]+)\:$/){
+    if($value < $1){
+      return 0;
+    }
+  }
+  elsif($pattern =~ /^\~\:([0-9]+)$/){
+    if($value > $1){
+      return 0;
+    }
+  }
+  elsif($pattern =~ /^([0-9]+)\:([0-9]+)$/){
+    if($value < $1 || $value > $2){
+      return 0;
+    }
+  }
+  elsif($pattern =~ /^\@([0-9]+)\:([0-9]+)$/){
+    if($value >= $1 and $value <= $2){
+      return 0;
+    }
+  }
+  else{
+    print "Invalid temperature parameter! ($pattern)\n";
+    exit(STATE_UNKNOWN);
+  }
+  return 1;
+}
+
+# Get the status string as plugin output
+# @param level The desired level to get the status string for. Either 'Warning'
+# or 'Critical'.
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors, elem 4 the used arcconf commands.
+# @return The created status string
+sub getStatusString{
+  my $level = shift;
+  my @statusLevel_a = @{(shift)};
+  my @sensors_a;
+  my $status_str = '';
+  if($level eq "Warning"){
+    @sensors_a = @{$statusLevel_a[1]};
+  }
+  if($level eq "Critical"){
+    @sensors_a = @{$statusLevel_a[2]};
+  }
+  my $parts = '';
+  # level comes from the method call, not the real status level
+  # level is used here, to call status check only once
+  if($level eq "Critical"){
+    my @keys = ('CTR_Status','LD_Status','PD_Status','ZMM_Status');
+    # Check which parts where checked
+    foreach my $key (@keys){
+      $key =~ /^([A-Z]+)\_.*$/;
+      my $part = $1;
+      if(${$statusLevel_a[0]} eq 'OK'){
+        if(exists($statusLevel_a[3]->{$key}) && $statusLevel_a[3]->{$key} eq 'OK'){
+          $parts .= ", " unless $parts eq '';
+          $parts .= $part;
+        }
+      }
+      else{
+        if(exists($statusLevel_a[3]->{$key}) && $statusLevel_a[3]->{$key} ne 'OK'){
+          $parts .= ", " unless $parts eq '';
+          $parts .= $part;
+          # Only add the first 4 chars, Warn or Crit
+          $parts .= ' '.substr($statusLevel_a[3]->{$key}, 0, 4);
+        }
+      }
+    }
+    $status_str.= '(';
+    $status_str .= $parts unless !defined($parts);
+    $status_str.= ')';
+  }
+  if($level eq 'Critical'){
+    $status_str.= ' ' unless !(@sensors_a);
+  }
+  # Add a space only if there are no Critical sensors
+  if($level eq 'Warning' && !@{$statusLevel_a[2]}){
+    $status_str.= ' ' unless !(@sensors_a);
+  }
+  if($level eq "Warning" || $level eq "Critical"){
+    if(@sensors_a){
+      # Print which sensors are Warn or Crit
+      foreach my $sensor (@sensors_a){
+        $status_str .= "[".$sensor." = ".$level;
+        if($VERBOSITY){
+          if(exists($statusLevel_a[3]->{$sensor})){
+            $status_str .= " (".$statusLevel_a[3]->{$sensor}.")";
+          }
+        }
+        $status_str .= "]";
+      }
+    }
+  }
+  return $status_str;
+}
+
+# Get the verbose string if a higher verbose level is used
+# @param statusLevel_a The status level array, elem 0 is the current status,
+# elem 1 the warning sensors, elem 2 the critical sensors, elem 3 the verbose
+# information for the sensors, elem 4 the used arcconf commands.
+# @param controllerToCheck Controller parsed by getControllerInfo
+# @param LDDevicesToCheck LDs parsed by getLogicalDevices
+# @param PDDevicesToCheck PDs parsed by getPhysicalDevices
+# @return The created verbosity string
+sub getVerboseString{
+  my @statusLevel_a = @{(shift)};
+  my %controllerToCheck = %{(shift)};
+  my @LDDevicesToCheck = @{(shift)};
+  my @PDDevicesToCheck = @{(shift)};
+  my @sensors_a;
+  my $verb_str;
+  
+  $verb_str .= "Used arcconf commands:\n";
+  foreach my $cmd (@{$statusLevel_a[4]}){
+    $verb_str .= '- '.$cmd."\n";
+  }
+  if(${$statusLevel_a[0]} eq 'Critical'){
+    $verb_str .= "Critical sensors:\n";
+    foreach my $sensor (@{$statusLevel_a[2]}){
+      $verb_str .= "\t- ".$sensor;
+      if(exists($statusLevel_a[3]->{$sensor})){
+        $verb_str .= ' ('.$statusLevel_a[3]->{$sensor}.')';
+      }
+      $verb_str .= "\n";
+    }
+    
+  }
+  # Warning sensors are printed at Crit and Warn level
+  if(${$statusLevel_a[0]} ne 'OK'){
+    $verb_str .= "Warning sensors:\n";
+    foreach my $sensor (@{$statusLevel_a[1]}){
+      $verb_str .= "\t- ".$sensor;
+      if(exists($statusLevel_a[3]->{$sensor})){
+        $verb_str .= ' ('.$statusLevel_a[3]->{$sensor}.')';
+      }
+      $verb_str .= "\n";
+    }
+    
+  }
+  if($VERBOSITY == 3){
+    $verb_str .= "CTR information:\n";
+    $verb_str .= "\t- ".$controllerToCheck{'Controller Model'}.":\n";
+    $verb_str .= "\t\t- ".'Serial No='.$controllerToCheck{'Controller Serial Number'}."\n";
+    if(exists $controllerToCheck{'FW Package Build'}){
+      $verb_str .= "\t\t- ".'FW Package Build='.$controllerToCheck{'FW Package Build'}."\n";
+    }
+    $verb_str .= "\t\t- ".'Driver='.$controllerToCheck{'Driver'}."\n";
+    $verb_str .= "\t\t- ".'Boot Flash='.$controllerToCheck{'Boot Flash'}."\n";
+    $verb_str .= "\t\t- ".'BIOS Version='.$controllerToCheck{'BIOS'}."\n";
+    $verb_str .= "\t\t- ".'FW Version='.$controllerToCheck{'Firmware'}."\n";
+    $verb_str .= "\t\t- ".'Temperature='.$controllerToCheck{'Temperature'}."\n";
+    $verb_str .= "\t\t- ".'Defunct drives='.$controllerToCheck{'Defunct disk drive count'}."\n";
+    $verb_str .= "\t\t- ".'LD devices/Failed/Degraded='.$controllerToCheck{'Logical devices/Failed/Degraded'}."\n";
+    $verb_str .= "LD information:\n";
+    foreach my $LD (@LDDevicesToCheck){
+      $verb_str .= "\t- ".$LD->{'ld'}.":\n";
+      foreach my $key (sort (keys(%{$LD}))){
+        $verb_str .= "\t\t- ".$key.'='.$LD->{$key}."\n";
+      }
+    }
+    $verb_str .= "PD information:\n";
+    foreach my $PD (@PDDevicesToCheck){
+      $verb_str .= "\t- ".$PD->{'pd'}.":\n";
+      foreach my $key (sort (keys(%{$PD}))){
+        $verb_str .= "\t\t- ".$key.'='.$PD->{$key}."\n";
+      }
+    }
+    if(exists($statusLevel_a[3]->{'ZMM_Status'})){
+      my $type = 'ZMM';
+      $verb_str .= $type." information:\n";
+      foreach my $stat (sort (keys(%{$statusLevel_a[3]}))){
+        if($stat =~ /^$type.+$/){
+          $verb_str .= "\t\t- $stat=".$statusLevel_a[3]->{$stat}."\n";
+        }
+      }
+    }
+  }
+  return $verb_str;
+}
+
+# Get the performance string for the current check. The values are taken from
+# the varbose hash in the status level array.
+# @param statusLevel_a The current status level array
+# @return The created performance string
+sub getPerfString{
+  my @statusLevel_a = @{(shift)};
+  my %verboseValues_h = %{$statusLevel_a[3]};
+  my $perf_str;
+  foreach my $key (sort (keys(%verboseValues_h))){
+    if($key =~ /temperature/i || $key =~ /ZMM_Health$/ || $key =~ /ZMM_Voltage_Present$/){
+      $perf_str .= ' ' unless !defined($perf_str);
+      $perf_str .= $key.'='.$verboseValues_h{$key};
+    }
+    if($key =~ /CTR_Temperature$/){
+      $perf_str .= ';'.$C_TEMP_WARNING.';'.$C_TEMP_CRITICAL;
+    }
+    elsif($key =~ /ZMM_Temperature$/){
+      $perf_str .= ';'.$ZMM_TEMP_WARNING.';'.$ZMM_TEMP_CRITICAL;
+    }
+  }
+  return $perf_str;
+}
+
+MAIN: {
+  my ($arcconf, $sudo, $noSudo, $version, $exitCode);
+  # Create default sensor arrays and push them to status level
+  my @statusLevel_a ;
+  my $status_str = 'OK';
+  my $warnings_a = [];
+  my $criticals_a = [];
+  my $verboseValues_h = {};
+  my $verboseCommands_a = [];
+  push @statusLevel_a, \$status_str;
+  push @statusLevel_a, $warnings_a;
+  push @statusLevel_a, $criticals_a;
+  push @statusLevel_a, $verboseValues_h;
+  push @statusLevel_a, $verboseCommands_a;
+  # Per default use a ZMM
+  my $zmm = 1;
+  my @logDevices;
+  my @physDevices;
+  my $platform = $^O;
+
+  if( !(GetOptions(
+    'h|help' => sub {displayHelp();},
+    'v|verbose' => sub {$VERBOSITY = 1 },
+    'vv' => sub {$VERBOSITY = 2},
+    'vvv' => sub {$VERBOSITY = 3},
+    'V|version' => \$version,
+    'C|controller=i' => \$CONTROLLER,
+    'LD|logicaldevice=s' => \@logDevices,
+    'PD|physicaldevice=s' => \@physDevices,
+    'Tw|temperature-warn=s' => \$C_TEMP_WARNING,
+    'Tc|temperature-critical=s' => \$C_TEMP_CRITICAL,
+    'ZMMTw|zmmtemperature-warn=s' => \$ZMM_TEMP_WARNING,
+    'ZMMTc|zmmtemperature-critical=s' => \$ZMM_TEMP_CRITICAL,
+    'p|path=s' => \$arcconf,
+    'z|ZMM=i' => \$zmm,
+    'nosudo' => \$noSudo,
+  ))){
+    print $NAME . " Version: " . $VERSION ."\n";
+    displayUsage();
+    exit(STATE_UNKNOWN);
+  }
+  if(defined($version)){ print $NAME . "\nVersion: ". $VERSION . "\n"; }
+  # Check arcconf tool
+  if(!defined($arcconf)){
+    if($platform eq 'linux'){
+      $arcconf = '/usr/Arcconf/arcconf';
+    }
+  }
+  if(!defined($arcconf)){
+    print "Error: cannot find arcconf executable.\n";
+    print "Ensure arcconf is in your path, or use the '-p <arcconf path>' switch!\n";
+    exit(STATE_UNKNOWN);
+  }
+  if($platform eq 'linux') {
+    if(!defined($noSudo)){
+      my $sudo;
+      chomp($sudo = `which sudo`);
+      if(!defined($sudo)){
+        print "Error: cannot find sudo executable.\n";
+        exit(STATE_UNKNOWN);
+      }
+      if($> != 0){
+        $arcconf = $sudo.' '.$arcconf;
+      }
+    }
+  }
+  # Print arcconf version if available
+  if(defined($version)){ displayVersion($arcconf) }
+  # Check if the controller number can be used
+  if(!getControllerVersion($arcconf)){
+    print "Error: invalid controller number, controller not found!\n";
+    exit(STATE_UNKNOWN);
+  }
+  # Prepare command line arrays
+  @logDevices = split(/,/,join(',', @logDevices));
+  @physDevices = split(/,/,join(',', @physDevices));
+  # Check if the BBU param is correct
+  if(($zmm != 1) && ($zmm != 0)) {
+    print "Error: invalid ZMM parameter, must be 0 or 1!\n";
+    exit(STATE_UNKNOWN);
+  }
+  my $zmmPresent = 0;
+  if($zmm == 1){
+    $zmmPresent = checkZMMPresent($arcconf);
+    if($zmmPresent == 0){
+      ${$statusLevel_a[0]} = 'Critical';
+      push @{$criticals_a}, 'ZMM_Present';
+      $statusLevel_a[3]->{'ZMM_Status'} = 'Critical';
+    }
+  }
+  if($zmmPresent == 1){ getZMMStatus($arcconf, \@statusLevel_a, $verboseCommands_a); }
+  
+  my $controllerToCheck = getControllerInfo($arcconf, $verboseCommands_a);
+  my $LDDevicesToCheck = getLogicalDevices($arcconf, \@logDevices, $verboseCommands_a);
+  my $PDDevicesToCheck = getPhysicalDevices($arcconf, \@physDevices, $verboseCommands_a);
+  
+  getControllerStatus(\@statusLevel_a, $controllerToCheck);
+  getLDStatus(\@statusLevel_a, $LDDevicesToCheck);
+  getPDStatus(\@statusLevel_a, $PDDevicesToCheck);
+  
+  print ${$statusLevel_a[0]}." ";
+  print getStatusString("Critical",\@statusLevel_a);
+  print getStatusString("Warning",\@statusLevel_a);
+  my $perf_str = getPerfString(\@statusLevel_a);
+  if($perf_str){
+    print "|".$perf_str;
+  }
+  if($VERBOSITY == 2 || $VERBOSITY == 3){
+    print "\n".getVerboseString(\@statusLevel_a, $controllerToCheck,
+    $LDDevicesToCheck, $PDDevicesToCheck)
+  }
+  $exitCode = STATE_OK;
+  if(${$statusLevel_a[0]} eq "Critical"){
+    $exitCode = STATE_CRITICAL;
+  }
+  if(${$statusLevel_a[0]} eq "Warning"){
+    $exitCode = STATE_WARNING;
+  }
+  exit($exitCode);
+}

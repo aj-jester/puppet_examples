@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Warning: Managed by Puppet
+#
+
+EXTRACT_PATH="<%= @extract_path %>"
+DEFAULT_VERSION="<%= @default_version %>"
+
+# Set default Java.
+/usr/sbin/alternatives --install /usr/bin/java java ${EXTRACT_PATH}/jdk-${DEFAULT_VERSION}/bin/java 100
+/usr/sbin/alternatives --set java ${EXTRACT_PATH}/jdk-${DEFAULT_VERSION}/bin/java
+
+# Get all installed Java alternatives except default version.
+java_alternatives=$(/usr/sbin/alternatives --display java | grep priority | grep -v ${DEFAULT_VERSION} | cut -d' ' -f1)
+
+# Remove java alternatives that do not match the default version of java.
+for java_path in $java_alternatives; do
+  /usr/sbin/alternatives --remove java ${java_path}
+done

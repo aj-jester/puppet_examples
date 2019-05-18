@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# Managed by Puppet
+#
+# Icinga2 Node Registrator
+#
+
+CURL=`which curl`
+PYTHON=`which python`
+ICINGA2=`which icinga2`
+
+set -o nounset
+set -o errexit
+
+if [[ "<%= @node_type %>" == "master" ]]; then
+  echo "Master nodes need to be registered manually."
+  exit 1
+fi
+
+TICKET_DATA_JSON=$(${CURL} -k -s -u pki-ticket:<%= @api_creds['pki-ticket'] %> -H 'Accept: application/json' -X POST 'https://<%= @master_host %>:5665/v1/actions/generate-ticket' -d '{ "cn": "<%= @fqdn %>" }')
+
+STATUS_CODE=$(echo ${TICKET_DATA_JSON} | ${PYTHON} -c 'import sys, json; print json.load(sys.stdin)["results"][0]["code"]')
+
+if [[ ${STATUS_CODE} == "200.0" ]]; then
+
+  TICKET=$(echo ${TICKET_DATA_JSON} | ${PYTHON} -c 'import sys, json; print json.load(sys.stdin)["results"][0]["ticket"]')
+
+  ${ICINGA2} pki new-cert \
+    --cn <%= @fqdn %> \
+    --key /var/lib/icinga2/certs/<%= @fqdn %>.key \
+    --cert /var/lib/icinga2/certs/<%= @fqdn %>.crt
+
+  ${ICINGA2} pki save-cert \
+    --key /var/lib/icinga2/certs/<%= @fqdn %>.key \
+    --cert /var/lib/icinga2/certs/<%= @fqdn %>.crt \
+    --host <%= @master_host %> \
+    --trustedcert /var/lib/icinga2/certs/trusted-master.crt
+
+  ${ICINGA2} pki request \
+    --host <%= @master_host %> \
+    --port 5665 \
+    --ticket ${TICKET} \
+    --key /var/lib/icinga2/certs/<%= @fqdn %>.key \
+    --cert /var/lib/icinga2/certs/<%= @fqdn %>.crt \
+    --ca /var/lib/icinga2/certs/ca.crt \
+    --trustedcert /var/lib/icinga2/certs/trusted-master.crt
+
+  ${ICINGA2} node setup \
+    --ticket ${TICKET} \
+    --endpoint <%= @master_host %> \
+    --zone <%= @node_type == 'satellite' ? 'satellite' : @fqdn %> \
+    --parent_host <%= @master_host %> \
+    --trustedcert /var/lib/icinga2/certs/trusted-master.crt
+
+else
+  echo ${TICKET_DATA_JSON}
+  echo "Unable to get ticket (${STATUS_CODE})."
+  exit 1
+fi

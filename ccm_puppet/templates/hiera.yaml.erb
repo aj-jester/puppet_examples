@@ -1,0 +1,16 @@
+---
+version: 5
+defaults:
+  datadir: data
+  data_hash: yaml_data
+
+hierarchy:
+<% if @fqdn_location == 'iad1' or @fqdn_location == 'slc1' %>
+  - name: "Remote data: Consul"
+    lookup_key: consul_lookup_key
+    uris:
+      - "http://localhost:8500/v1/kv/hiera/node/%{::fqdn}"
+    options:
+      token: "<%= @consul_token %>"
+      timeout: 10
+<% end %>

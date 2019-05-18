@@ -1,0 +1,78 @@
+/**
+ *
+ * Managed by Puppet
+ *
+ * Notifications apply
+ */
+
+apply Notification "mail-basic" to Host {
+  import "mail-host-notification"
+
+  users = ["mail-nagios-alerts"]
+  interval = 0
+  period = "24x7"
+
+  assign where host.address
+}
+
+apply Notification "mail-basic" to Service {
+  import "mail-service-notification"
+
+  users = ["mail-nagios-alerts"]
+  interval = 0
+
+  period = "24x7"
+
+  assign where host.address
+  ignore where service.vars.notify.mail_basic == false
+}
+
+apply Notification "victorops-basic" to Host {
+  import "victorops-host-notification"
+
+  users = ["victorops-techops"]
+  interval = 0
+  assign where host.address
+
+  # Dev and Stg nodes page only during workhours.
+  if (host.vars.ccm_env == "dev" || host.vars.ccm_env == "stg" || host.vars["facter"]["app-env"] == "dev" || host.vars["facter"]["app-env"] == "stg") {
+    period = "workhours"
+  # Time period set via Configrr templates.
+  } else if (host.vars.notify.timeperiod == "workhours") {
+    period = "workhours"
+  # All else
+  } else {
+    period = "24x7"
+  }
+
+}
+
+apply Notification "victorops-basic" to Service {
+  import "victorops-service-notification"
+
+  users = ["victorops-techops"]
+  interval = 0
+
+  assign where host.address
+  ignore where service.vars.notify.victorops_basic == false
+
+  if (service.vars.notify.victorops_warn_unknown == true) {
+
+    states = [ OK, Critical, Warning, Unknown ]
+  } else {
+
+    states = [ OK, Critical ]
+  }
+
+  # Dev and Stg nodes page only during workhours.
+  if (host.vars.ccm_env == "dev" || host.vars.ccm_env == "stg" || host.vars["facter"]["app-env"] == "dev" || host.vars["facter"]["app-env"] == "stg") {
+    period = "workhours"
+  # Time period set in Satellite Services templates.
+  } else if (service.vars.notify.timeperiod == "workhours") {
+    period = "workhours"
+  # All else
+  } else {
+    period = "24x7"
+  }
+
+}

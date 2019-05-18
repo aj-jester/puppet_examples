@@ -1,0 +1,74 @@
+#!/bin/bash
+
+#########################
+# Variables from Puppet #
+#########################
+REMOTE_MOUNT_TYPE="<%= @remote_mount_type %>"
+REMOTE_VOLUME="<%= @remote_volume %>"
+REMOTE_MOUNT="<%= @remote_mount %>"
+
+USERNAME="<%= @username %>"
+PASSWORD="<%= @password %>"
+
+PIGZ_PROCESSOR_COUNT=<%= @pigz_processor_count %>
+
+CLEANUP_OLD_DAYS=<%= @cleanup_old_days %>
+
+GPG_KEY_ID="<%= @gpg_key_id %>"
+
+#########################
+BACKUP_FILE_TIME=$(date +%Y-%m-%d_%H-%M-%S)
+TARBALL_BACKUP_PATH="${REMOTE_MOUNT}/<%= @tier %>-<%= @role %>/<%= @fqdn %>"
+
+echo "------------------"
+echo
+
+BACKUP_START_TIME=`date +%s`
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+
+  # We are backing up to a remote gluster or nfs filesystem, let's ensure it's mounted before we continue.
+  echo "verifying remote filesystem is mounted"
+
+  if grep -qs "${REMOTE_MOUNT}" /proc/mounts; then
+      echo "Remote Filesystem is mounted at ${REMOTE_MOUNT}"
+  else
+      echo "Mounting ${REMOTE_MOUNT_TYPE} ${REMOTE_MOUNT}"
+      mkdir -p "${REMOTE_MOUNT}"
+      mount -t "${REMOTE_MOUNT_TYPE}" "${REMOTE_VOLUME}" "${REMOTE_MOUNT}"
+  fi
+fi
+
+mkdir -p "${TARBALL_BACKUP_PATH}"
+
+DATABASES=`/usr/bin/mysql -u$USERNAME -p$PASSWORD -N -e "SHOW DATABASES;" | grep -Ev "(information_schema|performance_schema)"`
+
+for database in $DATABASES; do
+
+  TARBALL_BACKUP_FILE="${TARBALL_BACKUP_PATH}/mysql_${database}_${BACKUP_FILE_TIME}.gz.gpg"
+  
+  /usr/bin/mysqldump --force --opt -u$USERNAME -p$PASSWORD --databases $database \
+  | \
+  
+  pigz -9 -p ${PIGZ_PROCESSOR_COUNT} \
+  | \
+
+  gpg \
+    --encrypt \
+    --recipient "${GPG_KEY_ID}" \
+    --trust-model always \
+    --batch > "${TARBALL_BACKUP_FILE}"
+
+done
+
+BACKUP_END_TIME=`date +%s`
+BACKUP_TOTAL_TIME=`expr ${BACKUP_END_TIME} - ${BACKUP_START_TIME}`
+
+echo "Total time: ${BACKUP_TOTAL_TIME}s"
+
+echo "Cleaning backups older than ${CLEANUP_OLD_DAYS} days"
+find ${TARBALL_BACKUP_PATH} -mtime +${CLEANUP_OLD_DAYS} -delete
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+  umount "${REMOTE_MOUNT}"
+fi

@@ -1,0 +1,316 @@
+# IAD1
+nas01.ops.iad1.ccmteam.com:
+  hostgroup: 'netapp'
+  location: 'IAD1'
+  fqdn: 'nas01.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  netapp_appliance: true
+nas01-cl.bmc.nas.iad1.ccmteam.com:
+  hostgroup: 'netapp'
+  location: 'IAD1'
+  fqdn: 'nas01-cl.bmc.nas.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'netapp'
+vm01.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm01.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm02.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm02.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm03.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm03.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm01.bmc.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm01.bmc.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+vm02.bmc.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm02.bmc.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+vm03.bmc.ops.iad1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'IAD1'
+  fqdn: 'vm03.bmc.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+site-elk.prd.iad1.ccmteam.com:
+  hostgroup: 'site_elk'
+  location: 'IAD1'
+  fqdn: 'site-elk.prd.iad1.ccmteam.com'
+  ccm_env: 'prd'
+  cluster_type: 'elasticsearch'
+site-elk.stg.iad1.ccmteam.com:
+  hostgroup: 'site_elk'
+  location: 'IAD1'
+  fqdn: 'site-elk.stg.iad1.ccmteam.com'
+  ccm_env: 'stg'
+  cluster_type: 'elasticsearch'
+collectivei.com:
+  hostgroup: 'corp_website'
+  location: 'IAD1'
+  fqdn: 'collectivei.com'
+  ccm_env: 'prd'
+  app_type: 'external'
+sw-corea.ops.iad1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'IAD1'
+  fqdn: 'sw-corea.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-coreb.ops.iad1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'IAD1'
+  fqdn: 'sw-coreb.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+
+# NYC1
+vm01.ops.nyc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'NYC1'
+  fqdn: 'vm01.ops.nyc1.ccmteam.com'
+  ccm_env: 'ops'
+fw-vlan3.ops.nyc1.ccmteam.com:
+  hostgroup: 'firewall'
+  location: 'NYC1'
+  fqdn: 'fw-vlan3.ops.nyc1.ccmteam.com'
+  ccm_env: 'ops'
+  firewall_type: 'asa'
+
+# SLC1
+nas02.ops.slc1.ccmteam.com:
+  hostgroup: 'netapp'
+  location: 'SLC1'
+  fqdn: 'nas02.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  netapp_appliance: true
+nas02-cl.bmc.nas.slc1.ccmteam.com:
+  hostgroup: 'netapp'
+  location: 'SLC1'
+  fqdn: 'nas02-cl.bmc.nas.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'netapp'
+vm01.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm01.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm02.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm02.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm03.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm03.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  vmware_hypervisor: true
+vm01.bmc.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm01.bmc.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+vm02.bmc.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm02.bmc.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+vm03.bmc.ops.slc1.ccmteam.com:
+  hostgroup: 'vmware'
+  location: 'SLC1'
+  fqdn: 'vm03.bmc.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  bmc_type: 'ilo'
+site-elk.dev.slc1.ccmteam.com:
+  hostgroup: 'site_elk'
+  location: 'SLC1'
+  fqdn: 'site-elk.dev.slc1.ccmteam.com'
+  ccm_env: 'dev'
+  cluster_type: 'elasticsearch'
+pdu-c14-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c14-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c14-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c14-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c15-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c15-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c15-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c15-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c16-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c16-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c16-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c16-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c17-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c17-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c17-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c17-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c18-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c18-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c18-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c18-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c19-a.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c19-a.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+pdu-c19-b.pdu.ops.slc1.ccmteam.com:
+  hostgroup: 'pdu'
+  location: 'SLC1'
+  fqdn: 'pdu-c19-b.pdu.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  pdu_type: 'servertech'
+sw-corea.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-corea.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'cisco'
+sw-coreb.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-coreb.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'cisco'
+fw.ops.slc1.ccmteam.com:
+  hostgroup: 'firewall'
+  location: 'SLC1'
+  fqdn: 'fw.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  firewall_type: 'asa'
+sw-c15a.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c15a.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c15b.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c15b.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c16a.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c16a.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c16b.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c16b.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c17a.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c17a.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c17b.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c17b.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c18a.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c18a.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c18b.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c18b.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c19a.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c19a.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+sw-c19b.ops.slc1.ccmteam.com:
+  hostgroup: 'switch'
+  location: 'SLC1'
+  fqdn: 'sw-c19b.ops.slc1.ccmteam.com'
+  ccm_env: 'ops'
+  switch_type: 'juniper'
+elastic-infra.ops.iad1.ccmteam.com:
+  hostgroup: 'elastic_infra'
+  location: 'IAD1'
+  fqdn: 'elastic-infra.ops.iad1.ccmteam.com'
+  ccm_env: 'ops'
+  cluster_type: 'elasticsearch'
+elastic-apps.prd.iad1.ccmteam.com:
+  hostgroup: 'elastic_apps'
+  location: 'IAD1'
+  fqdn: 'elastic-apps.prd.iad1.ccmteam.com'
+  ccm_env: 'prd'
+  cluster_type: 'elasticsearch'
+elastic-apps.stg.iad1.ccmteam.com:
+  hostgroup: 'elastic_apps'
+  location: 'IAD1'
+  fqdn: 'elastic-apps.stg.iad1.ccmteam.com'
+  ccm_env: 'stg'
+  cluster_type: 'elasticsearch'

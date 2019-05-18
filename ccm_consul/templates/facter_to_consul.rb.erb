@@ -1,0 +1,186 @@
+#! /usr/bin/env ruby
+
+require 'faraday'
+require 'base64'
+require 'json'
+
+module FacterToConsul
+
+  def self.config
+    {
+      fqdn:               '<%= @facts['fqdn'] %>',
+      facts_data_file:    '<%= @facts_data_file %>',
+      consul_uri:         '<%= @consul_url %>',
+      consul_token:       '<%= @consul_token %>',
+      consul_schemas:     <%= @consul_schemas %>,
+      consul_factsd_file: '<%= @consul_factsd_dir %>/consul.json',
+    }
+  end
+
+  def self.connect
+    if @conn.nil?
+      @conn = Faraday.new(url: self.config[:consul_uri], headers:  {
+          'X-Consul-Token' => self.config[:consul_token],
+          'Content-Type' => 'application/json',
+        }) do |builder|
+        builder.use Faraday::Request::Retry
+        builder.use Faraday::Adapter::NetHttp
+      end
+    end
+    @conn
+  end
+
+  def self.get_puppet_facts
+    if @puppet_facts.nil?
+      begin
+        @puppet_facts = JSON.parse File.read self.config[:facts_data_file]
+      rescue JSON::ParserError, Errno::ENOENT => e
+        self.error e.message
+      end
+    end
+    @puppet_facts
+  end
+
+  def self.get_consul_kv_txn
+    if @consul_kv_txn.nil?
+
+      begin
+        built_kv_get_txn = self.config[:consul_schemas].map do |schema|
+          {
+            'KV' => {
+              'Verb'  => 'get-tree',
+              'Key'   => "#{schema}/node/#{self.config[:fqdn]}/",
+            }
+          }
+        end
+
+        put_kv_txn = self.connect.put do |req|
+          req.url '/v1/txn'
+          req.body = built_kv_get_txn.to_json
+        end
+
+        put_kv_txn_response = JSON.parse put_kv_txn.body
+
+        if put_kv_txn.status == 200 and put_kv_txn_response['Errors'] == nil
+          @consul_kv_txn = put_kv_txn_response['Results']
+        else
+          puts put_kv_txn_response['Errors']
+          self.error put_kv_txn.status
+        end
+
+      rescue Faraday::ConnectionFailed, Faraday::TimeoutError, JSON::ParserError => e
+        self.error e.message
+      end
+    end
+
+    @consul_kv_txn
+  end
+
+  def self.build_facter_txn
+    built_facter_txn = Array.new
+
+    consul_facter_kv = self.get_consul_kv_txn.select do |data|
+      data['KV']['Key'] =~ /^facter/
+    end.map do |facter|
+      [facter['KV']['Key'], facter['KV']['Value']]
+    end.to_h
+
+    puppet_facts = self.get_puppet_facts.map do |fact_key, fact_val|
+      ["facter/node/#{self.config[:fqdn]}/#{fact_key}", fact_val]
+    end.to_h
+
+    consul_facter_keys_to_delete = consul_facter_kv.keys - puppet_facts.keys
+
+    puppet_facts.each do |fact_key, fact_val|
+      consul_val = Base64.decode64(consul_facter_kv[fact_key]).chomp rescue nil
+
+      unless fact_val == consul_val
+        built_facter_txn.push({
+          'KV' => {
+            'Verb'  => 'set',
+            'Key'   => fact_key,
+            'Value' => Base64.encode64(fact_val).chomp,
+          }
+        })
+      end
+    end
+
+    consul_facter_keys_to_delete.each do |fact_key_to_delete|
+      built_facter_txn.push({
+        'KV' => {
+          'Verb' => 'delete',
+          'Key'  => fact_key_to_delete,
+        }
+      })
+    end
+
+    built_facter_txn
+  end
+
+  def self.put_facter_txn
+    begin
+      built_facter_txn = self.build_facter_txn
+
+      if built_facter_txn.empty?
+        puts 'KV /txn up-to-date.'
+
+      else
+        put_facter_txn = self.connect.put do |req|
+          req.url '/v1/txn'
+          req.body = built_facter_txn.to_json
+        end
+
+        put_facter_txn_response = JSON.parse put_facter_txn.body
+
+        if put_facter_txn.status == 200 and put_facter_txn_response['Errors'] == nil
+          puts 'Successfully PUT /txn KV.'
+        else
+          puts put_facter_txn_response['Errors']
+          self.error put_facter_txn.status
+        end
+      end
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError, JSON::ParserError => e
+      self.error e.message
+    end
+  end
+
+  def self.write_consul_kv_factsd
+
+    consul_factsd_hash = { 'consul' => Hash.new }
+
+    self.config[:consul_schemas].map do |schema|
+      consul_factsd_hash['consul'][schema] = Hash.new
+    end
+
+    consul_factsd = self.get_consul_kv_txn.map do |facter|
+      consul_txn_key = facter['KV']['Key'].split('/', 4)
+      consul_txn_val = Base64.decode64(facter['KV']['Value']).chomp rescue nil
+
+      consul_txn_schema = consul_txn_key.first
+      consul_txn_fact   = consul_txn_key.last
+
+      if self.config[:consul_schemas].include?(consul_txn_schema)
+        consul_factsd_hash['consul'][consul_txn_schema][consul_txn_fact] = consul_txn_val
+      end
+    end
+
+    File.open(self.config[:consul_factsd_file],'w') do |f|
+      f.write(consul_factsd_hash.to_json)
+    end
+
+    puts 'Wrote Consul factsd.'
+  end
+
+  def self.error msg
+    puts msg
+    exit 1
+  end
+
+  def self.run!
+    self.put_facter_txn
+    self.write_consul_kv_factsd
+  end
+
+end
+
+FacterToConsul.run!

@@ -1,0 +1,1087 @@
+apply Service "mem" {
+  import "generic-service"
+
+  check_command = "memory"
+
+  command_endpoint = host.name
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "serf-health" {
+  import "generic-service"
+
+  check_command = "consul-health"
+
+  command_endpoint = host.name
+  vars.checkid = "serfHealth"
+
+  if (host.vars.location == "IAD1") {
+    vars.datacenter  = "iad1"
+  } else if (host.vars.location == "SLC1") {
+    vars.datacenter  = "slc1"
+  }
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "disk" {
+  import "generic-service"
+
+  check_command = "ccm-disk"
+
+  command_endpoint = host.name
+
+  if (host.vars.hostgroup == "site_cdh") {
+    vars.notify.timeperiod = "workhours"
+  }
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "users" {
+  import "generic-service"
+
+  check_command = "users"
+
+  command_endpoint = host.name
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "load" {
+  import "generic-service"
+
+  check_command = "load"
+
+
+  vars.load_wload1 = 35.0
+  vars.load_wload5 = 35.0
+  vars.load_wload15 = 35.0
+
+  vars.load_cload1 = 50.0
+  vars.load_cload5 = 50.0
+  vars.load_cload15 = 50.0
+
+  command_endpoint = host.name
+
+  assign where host.vars.has_agent == true
+
+  vars.notify.victorops_basic = false
+  if (host.vars.hostgroup == "site_cdh") {
+    vars.notify.mail_basic = false
+  }
+
+}
+
+apply Service "procs" {
+  import "generic-service"
+
+  check_command = "procs"
+
+  command_endpoint = host.name
+
+  vars.procs_warning = 4000
+  vars.procs_critical = 5000
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "swap" {
+  import "generic-service"
+
+  check_command = "swap"
+
+  command_endpoint = host.name
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "ssh" {
+  import "generic-service"
+
+  check_command = "ssh"
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars.has_agent == true
+}
+
+apply Service "ro-mounts" {
+  import "generic-service"
+
+  check_command = "ro-mounts"
+
+  command_endpoint = host.name
+
+  assign where host.vars.has_agent == true
+}
+
+/*
+apply Service "ipmi" {
+  import "generic-service"
+
+  check_command = "ipmi-sensor-real"
+
+  command_endpoint = host.name
+
+  assign where host.vars.is_virtual == false
+  ignore where host.vars.has_agent == false
+}
+*/
+
+apply Service "redis-get" {
+  import "generic-service"
+
+  check_command = "redis-get"
+
+  command_endpoint = host.name
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-resp-6379" {
+  import "generic-service"
+
+  check_command = "redis-response-time"
+  
+  vars.port = "6379"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "site_redis"
+  assign where host.vars.hostgroup == "etl_data"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+  assign where host.vars.hostgroup == "fe_redis_master"
+  assign where host.vars.hostgroup == "fe_redis_slave"
+}
+
+apply Service "redis-resp-6389" {
+  import "generic-service"
+
+  check_command = "redis-response-time"
+
+  vars.port = "6389"
+
+  command_endpoint = host.name
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-resp-6399" {
+  import "generic-service"
+
+  check_command = "redis-response-time"
+
+  vars.port = "6399"
+
+  command_endpoint = host.name
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-hitrate-6379" {
+  import "generic-service"
+
+  check_command = "redis-hitrate"
+
+  vars.port = "6379"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "site_redis"
+  assign where host.vars.hostgroup == "etl_data"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-hitrate-6389" {
+  import "generic-service"
+
+  check_command = "redis-hitrate"
+
+  vars.port = "6389"
+
+  command_endpoint = host.name
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-hitrate-6399" {
+  import "generic-service"
+
+  check_command = "redis-hitrate"
+
+  vars.port = "6399"
+
+  command_endpoint = host.name
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-mem10-6379" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6379"
+  vars.total_memory = "10G"
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "redis-mem10-6389" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6389"
+  vars.total_memory = "10G"
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+}
+
+apply Service "redis-mem10-6399" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6399"
+  vars.total_memory = "10G"
+
+  assign where host.name == "site-redis04.prd.iad1.ccmteam.com"
+}
+
+apply Service "redis-mem100-6379" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6379"
+  vars.total_memory = "100G"
+
+  assign where regex("stg", host.address) && host.vars.hostgroup == "site_redis"
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+  assign where host.vars.hostgroup == "fe_redis_master"
+  assign where host.vars.hostgroup == "fe_redis_slave"
+}
+
+apply Service "redis-mem100-6389" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6389"
+  vars.total_memory = "100G"
+
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "redis-mem100-6399" {
+  import "generic-service"
+
+  check_command = "redis-memory"
+
+  command_endpoint = host.name
+
+  vars.warn = 50
+  vars.crit = 75
+  vars.port = "6399"
+  vars.total_memory = "100G"
+
+  assign where host.vars.hostgroup == "site_redis_multi_instance"
+}
+
+apply Service "cdh-license" {
+  import "generic-service"
+
+  check_command = "cloudera-manager-license"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "site_cdhadmin"
+}
+
+<% ['2003', '2004', '2013', '2014', '2023', '2024'].each do |port| %>
+apply Service "carbon-port-<%= port %>" {
+  import "generic-service"
+
+  check_command = "tcp"
+
+  vars.tcp_port = "<%= port %>"
+
+  assign where host.vars.hostgroup == "SLC1/carbon_aggregator"
+
+}
+<% end %>
+
+apply Service "ntp-time" {
+  import "generic-service"
+
+  check_command = "ntp_time"
+
+  vars.ntp_warning = "0.5"
+  vars.ntp_critical = "1"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "IAD1/iad1mh"
+  assign where host.vars.hostgroup == "NYC1/nyc1mh"
+  assign where host.vars.hostgroup == "SLC1/slc1mh"
+}
+
+apply Service "cdh-prd-hdfs-missing-blocks" {
+  import "generic-service"
+
+  check_command = "cloudera-manager-metrics"
+
+  vars.warn = "1"
+  vars.crit = "5"
+  vars.cluster = "Collective%5Bi%5D PROD"
+  vars.service = "hdfs"
+  vars.metrics = "missing_blocks"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "site_cdhadmin" && host.vars.subnet == "IAD1-PRD"
+}
+
+apply Service "cdh-stg-hdfs-missing-blocks" {
+  import "generic-service"
+
+  check_command = "cloudera-manager-metrics"
+
+  vars.warn = "1"
+  vars.crit = "5"
+  vars.cluster = "Collective%5Bi%5D STG"
+  vars.service = "hdfs"
+  vars.metrics = "missing_blocks"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "site_cdhadmin" && host.vars.subnet == "IAD1-STG"
+}
+
+apply Service "collectl" {
+  import "generic-service"
+
+  check_command = "procs"
+
+  command_endpoint = host.name
+
+  vars.procs_critical = "1:1"
+  vars.procs_command = "collectl"
+
+  assign where host.vars.has_agent == true
+}
+
+#apply Service "adas-8088-ESandRedis" {
+#  import "generic-service"
+
+#  check_command = "adas-http-headers"
+
+#  command_endpoint = host.name
+
+#  vars.http_port = "8088"
+#  vars.http_uri = "/analytics/rest/v2/hardening/checkhealth"
+#  vars.http_expect_body_regex = "esAndRedisOK"
+#  vars.http_timeout = "60"
+
+#  assign where host.vars.hostgroup == "ae_adas_with_lsf"
+#}
+
+apply Service "collectd" {
+  import "generic-service"
+
+  check_command = "procs"
+
+  command_endpoint = host.name
+
+  vars.procs_critical = "1:1"
+  vars.procs_command = "collectd"
+
+  assign where host.vars.hostgroup == "NYC1/nyc1reader"
+  assign where host.vars.hostgroup == "SLC1/reader"
+}
+
+apply Service "ldap" {
+  import "generic-service"
+
+  check_command = "ldap"
+  command_endpoint = host.name
+
+  vars.ldap_port = "636"
+  vars.ldap_base = "dc=ccmteam,dc=com"
+  vars.ldap_ssl  =  true
+
+  assign where host.vars.hostgroup == "openldap_slave"
+  assign where host.vars.hostgroup == "NYC1/nyc1openldap"
+  assign where host.vars.hostgroup == "SLC1/slc1openldap"
+}
+
+apply Service "ldap-syncrepl" {
+  import "generic-service"
+
+  check_command = "ldap-syncrepl"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "openldap_slave"
+  assign where host.vars.hostgroup == "NYC1/nyc1openldap"
+}
+
+apply Service "PMP" {
+   import "generic-service"
+
+  check_command = "http"
+
+  command_endpoint = host.name
+
+  vars.http_ssl_force_tlsv1_2_or_higher = true
+  vars.http_port = "443"
+  vars.http_uri = "/restapi/json/v1/resources?AUTHTOKEN=59854175-CB28-4E05-B1CC-1E7D2DFD43D3"
+  vars.http_string = "operation"
+
+  assign where host.vars.hostgroup == "NYC1/nyc1pmp"
+  assign where host.vars.hostgroup == "SLC1/pmp"
+}
+
+apply Service "dhcp" {
+  import "generic-service"
+
+  check_command = "dhcp"
+
+  command_endpoint = host.name
+
+  vars.dhcp_serverip = "$host.name$"
+
+  assign where host.vars.hostgroup == "NYC/nyc1dhcp_failover_primary"
+  assign where host.vars.hostgroup == "NYC/nyc1dhcp_failover_secondary"
+  assign where host.vars.hostgroup == "SLC1/slc1dhcp"
+  assign where host.vars.hostgroup == "IAD1/iad1infra"
+}
+
+#apply Service "adas-9088-ESandRedis" {
+#  import "generic-service"
+
+#  check_command = "adas-http-headers"
+
+#  command_endpoint = host.name
+
+#  vars.http_port = "9088"
+#  vars.http_uri = "/analytics/rest/v2/hardening/checkhealth"
+#  vars.http_expect_body_regex = "esAndRedisOK"
+#  vars.http_timeout = "300"
+
+#  assign where host.vars.hostgroup == "ae_adas_with_lsf"
+#}
+
+#apply Service "adas-8088-Impala" {
+#  import "generic-service"
+
+#  check_command = "adas-http-headers"
+
+#  command_endpoint = host.name
+
+#  vars.http_port = "8088"
+#  vars.http_uri = "/analytics/rest/v2/hardening/checkhealth"
+#  vars.http_expect_body_regex = "ImpalaOK"
+#  vars.http_timeout = "60"
+
+#  assign where host.vars.hostgroup == "ae_adas_with_lsf"
+#}
+
+#apply Service "adas-9088-Impala" {
+#  import "generic-service"
+
+#  check_command = "adas-http-headers"
+
+#  command_endpoint = host.name
+
+#  vars.http_port = "9088"
+#  vars.http_uri = "/analytics/rest/v2/hardening/checkhealth"
+#  vars.http_expect_body_regex = "ImpalaOK"
+#  vars.http_timeout = "300"
+
+#  assign where host.vars.hostgroup == "ae_adas_with_lsf"
+#}
+
+apply Service "mongodb-connect" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "30"
+  vars.crit   = "60"
+  vars.action = "connect"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-connections" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "70"
+  vars.crit   = "80"
+  vars.action = "connections"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-databases" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "200"
+  vars.crit   = "250"
+  vars.action = "databases"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-memory" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   ="275"
+  vars.crit   = "300"
+  vars.action = "memory"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-memory-mapped" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "5"
+  vars.crit   = "10"
+  vars.action = "memory_mapped"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-opcounters" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "1000"
+  vars.crit   = "1500"
+  vars.action = "opcounters"
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-oplog" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "12"
+  vars.crit   = "3"
+  vars.action = "oplog"
+
+  command_endpoint = host.name
+
+  vars.notify.timeperiod = "workhours"
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data" && (host.vars.ccm_env == "stg" || host.vars.ccm_env == "prd")
+}
+
+apply Service "mongodb-replication-lag" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "450"
+  vars.crit   = "900"
+  vars.action = "replication_lag"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-replset-state" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+  check_interval = 20m
+  retry_interval = 20m
+
+  vars.warn   = "0"
+  vars.crit   = "0"
+  vars.action = "replset_state"
+
+  vars.notify.victorops_warn_unknown = true
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "mongodb-collections" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "6000"
+  vars.crit   = "7500"
+  vars.action = "collections"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+  assign where host.vars.hostgroup == "etl_data"
+}
+
+apply Service "graphiteweb" {
+  import "generic-service"
+
+  check_command = "http"
+
+  command_endpoint = host.name
+
+  vars.http_port = "80"
+  vars.http_uri = "/composer"
+  vars.http_string = "Graphite Composer"
+
+  assign where host.vars.hostgroup == "SLC1/carbon_aggregator"
+}
+
+apply Service "postfix" {
+  import "generic-service"
+
+  check_command = "smtp"
+
+  vars.smtp_port   = "25"
+  vars.smtp_expect = "220"
+
+  command_endpoint = host.name
+
+  assign where host.vars.hostgroup == "IAD1/iad1mh"
+  assign where host.vars.hostgroup == "NYC1/nyc1mh"
+  assign where host.vars.hostgroup == "SLC1/slc1mh"
+}
+
+apply Service for (interface => val in host.vars.ccm_interfaces_link_up) {
+  import "generic-service"
+
+  name = "ifx-" + interface
+
+  check_command = "iftrafficpy"
+
+  command_endpoint = host.name
+
+  display_name = "ifx-" + interface
+
+  vars.iftrafficpy_int = interface
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+}
+
+apply Service for (interface => val in host.vars.ccm_interfaces_link_up) {
+  import "generic-service"
+
+  name = "ifln-" + interface
+
+  check_command = "iflink"
+
+  command_endpoint = host.name
+
+  display_name = "ifln-" + interface
+
+  vars.iflink_int = interface
+}
+
+apply Service "if-bond" {
+  import "generic-service"
+
+  check_command = "ifbond"
+
+  command_endpoint = host.name
+
+  assign where len(host.vars.ccm_interfaces_link_up) >= 2
+}
+
+apply Service "mdadm" {
+  import "generic-service"
+
+  check_command = "mdadm"
+
+  command_endpoint = host.name
+
+  assign where host.vars.ccm_raid == "mdadm"
+}
+
+apply Service "adaptec" {
+  import "generic-service"
+
+  check_command = "adaptec"
+
+  command_endpoint = host.name
+
+  assign where host.vars.ccm_raid == "adaptec"
+}
+
+apply Service "megaraid" {
+  import "generic-service"
+
+  check_command = "megaraid"
+
+  command_endpoint = host.name
+
+  assign where host.vars.ccm_raid == "megaraid"
+}
+
+apply Service "smartarray" {
+  import "generic-service"
+
+  check_command = "smartarray"
+
+  command_endpoint = host.name
+
+  assign where host.vars.ccm_raid == "smartarray"
+}
+
+apply Service "netapp-cdot-clusterlinks" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-clusterlinks"
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "netapp-cdot-disk" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-disk"
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "netapp-cdot-global" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-global"
+
+  vars.plugin = "health"
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "netapp-cdot-interfaces" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-interfaces"
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "netapp-cdot-multipaths" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-multipath"
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "netapp-cdot-volume" {
+  import "generic-service"
+
+  check_command = "netapp-cdot-volume"
+
+  vars.size_warning = 85
+  vars.size_critical = 90
+  vars.inode_warning = 75
+  vars.inode_critical = 85
+
+  assign where host.vars.bmc_type == "netapp"
+}
+
+apply Service "remote-dns" {
+  import "generic-service"
+
+  check_command = "dig"
+
+  command_endpoint = host.name
+
+  vars.dig_server = "ns1.google.com"
+  vars.dig_lookup = "google.com"
+  vars.dig_warning = "2"
+  vars.dig_critical = "5"
+
+  assign where host.vars.hostgroup == "NYC1/nyc1mon_central"
+}
+
+apply Service "proxy-port" {
+  import "generic-service"
+
+  check_command = "tcp"
+
+  vars.tcp_port = "3128"
+
+  assign where host.vars.hostgroup == "proxy"
+}
+
+apply Service "ilo2-health" {
+  import "generic-service"
+
+  check_command = "ccm-ilo2-health"
+
+  assign where host.vars.bmc_type == "ilo"
+}
+
+apply Service "elasticsearch-health" {
+  import "generic-service"
+
+  check_command = "elasticsearch-health"
+
+  check_interval = 15m
+  retry_interval = 15m
+
+  assign where host.vars.cluster_type == "elasticsearch"
+}
+
+apply Service "cisco-health" {
+  import "generic-service"
+
+  check_command = "snmp-environment"
+
+  vars.type = "cisco"
+
+  assign where host.vars.switch_type == "cisco"
+}
+
+apply Service "juniper-health" {
+  import "generic-service"
+
+  check_command = "snmp-environment"
+
+  vars.type = "juniper"
+
+  assign where host.vars.switch_type == "juniper"
+}
+
+apply Service "asa-failover" {
+  import "generic-service"
+
+  check_command = "snmp"
+
+  vars.snmp_community = "public"
+  vars.snmp_oid = ".1.3.6.1.4.1.9.9.147.1.2.1.1.1.4.6"
+  vars.snmp_string = "\"Active unit\""
+
+  assign where host.vars.firewall_type == "asa"
+}
+
+apply Service "clam-sigs" {
+  import "generic-service"
+
+  check_command = "clamav-signatures"
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars.hostgroup == "fe_mongo_encrypted"
+}
+
+apply Service "mysqld-metrics" {
+  import "generic-service"
+
+  check_command = "mysqld-metrics"
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_basic = false
+
+  vars.mysqld_metrics_username = "backups"
+  vars.mysqld_metrics_password = "sup3rs3cur3"
+
+  assign where host.vars.hostgroup == "ae_repo"
+  assign where host.vars.hostgroup == "SLC1/aer_dev"
+}
+
+apply Service "neo4j-stats-7474" {
+  import "generic-service"
+
+  check_command = "neo4j-stats"
+
+  command_endpoint = host.name
+
+  vars.port = "7474"
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars.hostgroup == "min_graph"
+}
+
+apply Service "neo4j-stats-7475" {
+  import "generic-service"
+
+  check_command = "neo4j-stats"
+
+  command_endpoint = host.name
+
+  vars.port = "7475"
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.name == "min-graph01.stg.iad1.ccmteam.com"
+}
+
+<%
+[
+  'collectivei.com',
+  'intelligence.com',
+  'themodernsale.com',
+  'ccmteam.com',
+].each do |domain|
+%>
+apply Service "domain-<%= domain.gsub(".", "-")  %>" {
+  import "generic-service"
+
+  check_command = "domain"
+  notes_url = "https://crosscommercemedia.jira.com/wiki/spaces/SM/pages/592937122/Domain+and+Cert+expiration"
+
+  command_endpoint = host.name
+
+  vars.domain = "<%= domain %>"
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars.hostgroup == "IAD1/repo"
+}
+<% end %>
+
+<%
+[
+  'www.collectivei.com',
+  'www.intelligence.com',
+  'webanalytics.intelligence.collectivei.com',
+  'adas.collectivei.com',
+  'images.intelligence.com',
+  'ppt-foreman.ccmteam.com',
+].each do |ssl_host|
+%>
+apply Service "ssl-cert-<%= ssl_host.gsub(".", "-")  %>" {
+  import "generic-service"
+
+  check_command = "ssl-cert"
+  notes_url = "https://crosscommercemedia.jira.com/wiki/spaces/SM/pages/592937122/Domain+and+Cert+expiration"
+
+  command_endpoint = host.name
+
+  vars.host = "<%= ssl_host %>"
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars.hostgroup == "IAD1/repo"
+}
+
+<% end %>
+
+apply Service "adas-processor-mysql-conn-errors" {
+  import "generic-service"
+
+  max_check_attempts   = 1
+  retry_interval       = 5m
+
+  check_command        = "scrape-logfiles"
+  notes_url            = "https://crosscommercemedia.jira.com/wiki/spaces/SM/pages/736624759/ADAS+Connections+Exceeded"
+
+  vars.tag             = "adas-processor-flush-hosts"
+  vars.logfile         = "/vol1/pentaho/current/processor/biserver-ce/tomcat/logs/pentaho.log"
+  vars.criticalpattern = "blocked because of many connection errors"
+
+  command_endpoint     = host.name
+  assign where host.vars.hostgroup == "ae_adas_with_lsf" && host.vars.subnet == "IAD1-PRD-DMZ"
+
+}
+
+apply Service "adas-services-mysql-conn-errors" {
+  import "generic-service"
+
+  max_check_attempts   = 1
+  retry_interval       = 5m
+
+  check_command        = "scrape-logfiles"
+  notes_url            = "https://crosscommercemedia.jira.com/wiki/spaces/SM/pages/736624759/ADAS+Connections+Exceeded"
+
+  vars.tag             = "adas-services-flush-hosts"
+  vars.logfile         = "/vol1/pentaho/current/services/biserver-ce/tomcat/logs/pentaho.log"
+  vars.criticalpattern = "blocked because of many connection errors"
+
+  command_endpoint     = host.name
+  assign where host.vars.hostgroup == "ae_adas_with_lsf" && host.vars.subnet == "IAD1-PRD-DMZ"
+
+}

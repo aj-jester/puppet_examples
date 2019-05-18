@@ -1,0 +1,14 @@
+---
+version: 5
+defaults:
+  data_hash: yaml_data
+  datadir: data
+
+hierarchy:
+  - name: "Normal data: per-node, per-tier/role, sudo, common"
+    paths:
+      - "node/%{fqdn}.yaml"
+      - "%{::fqdn_tier}/%{::fqdn_role}/%{::app_env}.yaml"
+      - "%{::fqdn_tier}/%{::fqdn_location}.yaml"
+      - "location/%{::fqdn_location}.yaml"
+      - "common.yaml"

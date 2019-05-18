@@ -1,0 +1,37 @@
+/**
+ *
+ * Managed by Puppet
+ *
+ * This file defines global constants which can be used in
+ * the other configuration files.
+ */
+
+/* The directory which contains the plugins from the Monitoring Plugins project. */
+const PluginDir = "/usr/lib64/nagios/plugins"
+
+/* The directory which contains the Manubulon plugins.
+ * Check the documentation, chapter "SNMP Manubulon Plugin Check Commands", for details.
+ */
+const ManubulonPluginDir = "/usr/lib64/nagios/plugins"
+
+/* The directory which you use to store additional plugins which ITL provides user contributed command definitions for.
+ * Check the documentation, chapter "Plugins Contribution", for details.
+ */
+const PluginContribDir = "/usr/lib64/nagios/plugins/contrib"
+
+const SudoCmd = "/usr/bin/sudo"
+
+<% if @node_type == 'master' %>
+const NodeName = "<%= @master_host %>"
+const ZoneName = "<%= @node_type %>"
+const TicketSalt = "<%= @ticket_salt %>"
+
+<% elsif @node_type == 'satellite' %>
+const NodeName = "<%= @fqdn %>"
+const ZoneName = "<%= @node_type %>"
+<% else %>
+  
+const NodeName = "<%= @fqdn %>"
+const ZoneName = "<%= @fqdn %>"
+<% end %>
+

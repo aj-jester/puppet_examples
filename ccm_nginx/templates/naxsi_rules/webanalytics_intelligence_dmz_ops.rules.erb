@@ -1,0 +1,15 @@
+#LearningMode;
+SecRulesEnabled;
+#SecRulesDisabled;
+DeniedUrl "/RequestDenied";
+
+## Check & Blocking Rules
+CheckRule "$SQL >= 8" BLOCK;
+CheckRule "$RFI >= 8" BLOCK;
+CheckRule "$TRAVERSAL >= 4" BLOCK;
+CheckRule "$EVADE >= 4" BLOCK;
+CheckRule "$XSS >= 8" BLOCK;
+
+## Whitelist Rules
+BasicRule wl:1002 "mz:$URL_X:^/libs/jquery/themes/base/images/ui-bg_flat_75_ffffff_40x100.png|URL" "msg:Images size (0x)";
+BasicRule wl:1002 "mz:URL" "msg:Site-wide id+zone if it matches 0x, possible hex encoding";

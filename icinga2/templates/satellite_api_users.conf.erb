@@ -1,0 +1,12 @@
+/**
+ *
+ * Managed by Puppet
+ *
+ * Icinga2 API users (applies for both Master AND Satellites)
+ */
+ 
+/* External Icinga monitoring */
+object ApiUser  "status-stats" {
+  password = "<%= @api_creds['status-stats'] %>"
+  permissions = [ "status/*" ]
+}

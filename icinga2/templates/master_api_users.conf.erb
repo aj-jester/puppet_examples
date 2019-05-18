@@ -1,0 +1,12 @@
+/**
+ *
+ * Managed by Puppet
+ *
+ * Icinga2 API users (applies for Master ONLY)
+ */
+
+/* Node registration PKI ticket */
+object ApiUser  "pki-ticket" {
+  password = "<%= @api_creds['pki-ticket'] %>"
+  permissions = [ "actions/generate-ticket" ]
+}

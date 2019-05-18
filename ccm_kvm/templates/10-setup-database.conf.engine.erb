@@ -1,0 +1,12 @@
+#
+# Warning: Managed by Puppet
+#
+ENGINE_DB_HOST="<%= @ovirt_engine_db_host %>"
+ENGINE_DB_PORT="5432"
+ENGINE_DB_USER="<%= @ovirt_engine_db_user %>"
+ENGINE_DB_PASSWORD="<%= @ovirt_engine_db_pass %>"
+ENGINE_DB_DATABASE="<%= @ovirt_engine_db_name %>"
+ENGINE_DB_SECURED="False"
+ENGINE_DB_SECURED_VALIDATION="False"
+ENGINE_DB_DRIVER="org.postgresql.Driver"
+ENGINE_DB_URL="jdbc:postgresql://<%= @ovirt_engine_db_host %>:5432/<%= @ovirt_engine_db_name %>?sslfactory=org.postgresql.ssl.NonValidatingFactory"

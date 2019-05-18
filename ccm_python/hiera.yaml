@@ -1,0 +1,11 @@
+---
+version: 5
+defaults:
+  data_hash: yaml_data
+  datadir: data
+
+hierarchy:
+  - name: "Normal data: per-node, per-tier/role, per-datacenter, common"
+    paths:
+      - "location/%{fqdn_location}.yaml"
+      - "common.yaml"

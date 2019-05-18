@@ -1,0 +1,201 @@
+require 'net/https'
+require 'net/smtp'
+require 'socket'
+require 'logger'
+require 'json'
+require 'uri'
+
+module VictorOpsNotification
+
+  def self.config
+    {
+      'victorops_rest_api' => "https://alert.victorops.com/integrations/generic/20131114/alert/15a16e47-58b5-4fda-b665-31c2d051bb1a/#{ENV['USERPAGER']}",
+      'victorops_email'    => "3c2b5aab-de0a-4948-bd5b-9e4b8db36372+#{ENV['USERPAGER']}@alert.victorops.com",
+      'log_file_path'      => '/var/log/icinga2/victorops-notification.log',
+      'log_max_days'       => 30,
+      'proxy_host'         => 'proxy.<%= @app_env %>.<%= @fqdn_location %>.ccmteam.com',
+      'proxy_port'         => 3128,
+      'smtp_host'          => 'mailhub.ops.<%= @fqdn_location %>.ccmteam.com',
+    }
+  end
+
+  def self.notify_rest_api
+
+    uri = URI.parse self.config['victorops_rest_api']
+    headers = { 'Content-Type' => 'application/json' }
+
+    begin
+      http = Net::HTTP.new uri.host, uri.port, self.config['proxy_host'], self.config['proxy_port']
+      http.use_ssl = true
+      http.read_timeout = 60
+      http.open_timeout = 60
+
+      request = Net::HTTP::Post.new uri.request_uri, headers
+      request.body = self.alert_data.to_json
+
+      response = http.request request
+      response_code = response.code.to_i
+
+      if response_code == 200
+        response_body = JSON.parse response.body
+        response_body['code'] = 200
+        self.log_info response_body
+
+      elsif response_code == 400
+        response_body = JSON.parse response.body
+        response_body['code'] = 400
+        self.log_error response_body
+
+      else
+
+        self.log_error({
+          'result'  => 'failure',
+          'code'    => response_code,
+          'message' => response.body,
+        })
+      end
+
+    rescue JSON::ParserError
+      self.log_error 'Unable to parse JSON.'
+
+    rescue Timeout::Error
+      self.log_error 'Timeout connecting to VictorOps API.'
+
+    rescue Errno::EINVAL, Errno::ECONNRESET, EOFError, Errno::ECONNREFUSED,
+      Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError => e
+
+      self.log_error "Net::HTTP: #{e.message}"
+    end
+
+  end
+
+  def self.alert_data
+
+    if @alert_body.nil?
+
+      if ENV['SERVICESTATE']
+        message_type = if ENV['NOTIFICATIONTYPE'] == 'ACKNOWLEDGEMENT'
+          'ACKNOWLEDGEMENT'
+        elsif ENV['SERVICESTATE'] == 'CRITICAL'
+          'CRITICAL'
+        elsif ENV['SERVICESTATE'] == 'WARNING' || ENV['SERVICESTATE'] == 'UNKNOWN'
+          'WARNING'
+        elsif ENV['SERVICESTATE'] == 'OK'
+          'RECOVERY'
+        else
+          'CRITICAL'
+        end
+
+        entity_id     = "#{ENV['SERVICEDESC']} on #{ENV['HOSTALIAS']}"
+        check_type    = ENV['SERVICEDESC']
+        state_message = "#{ENV['SERVICESTATE']} #{ENV['SERVICEDESC']} on #{ENV['HOSTALIAS']} in #{ENV['NOTIFICATIONTYPE']}: #{ENV['SERVICEOUTPUT']}"
+
+      elsif ENV['HOSTSTATE']
+        message_type = if ENV['NOTIFICATIONTYPE'] == 'ACKNOWLEDGEMENT'
+          'ACKNOWLEDGEMENT'
+        elsif ENV['HOSTSTATE'] == 'DOWN'
+          'CRITICAL'
+        elsif ENV['HOSTSTATE'] == 'UP'
+          'RECOVERY'
+        else
+          'CRITICAL'
+        end
+
+        entity_id     = "host #{ENV['HOSTALIAS']} state"
+        check_type    = 'hostalive'
+        state_message = "#{ENV['HOSTSTATE']} host #{ENV['HOSTALIAS']} in #{ENV['NOTIFICATIONTYPE']}: #{ENV['HOSTOUTPUT']}"
+
+      # we should never get to this place
+      else
+         message_type = 'CRITICAL'
+         entity_id    = 'unknown entity, bug?'
+      end
+
+      @alert_body = {
+        'message_type'        => message_type,
+        'entity_id'           => entity_id,
+        'entity_display_name' => entity_id,
+        'state_message'       => state_message,
+        'check_type'          => check_type,
+        'dispatch_host'       => Socket.gethostname,
+        'icinga2_start_time'  => ENV['LONGDATETIME'],
+        'monitoring_tool'     => 'Icinga2',
+      }
+
+      self.log_info @alert_body
+
+    end
+
+    return @alert_body
+  end
+
+  def self.notify_email
+
+    self.log_info 'Attempting to send alert via email.'
+
+    alert_body = self.alert_data
+
+    body_message = <<-BODY_MESSAGE
+From: Icinga2 <icinga2@#{alert_body['dispatch_host']}>
+To: VictorOps <#{self.config['victorops_email']}>
+MIME-Version: 1.0
+Content-type: text/plain
+Subject: #{alert_body['entity_id']} #{alert_body['message_type']}
+
+#{alert_body['state_message']}
+
+This alert was sent via email instead of api from #{alert_body['dispatch_host']}.
+Datetime: #{alert_body['icinga2_start_time']}
+
+BODY_MESSAGE
+
+    begin
+      Net::SMTP.start(self.config['smtp_host']) do |smtp|
+        smtp.send_message body_message, "icinga2@localhost", self.config['victorops_email']
+      end
+      self.log_info 'Alert successfully sent via email.'
+
+    rescue IOError, Net::SMTPAuthenticationError, Net::SMTPServerBusy,
+      Net::SMTPUnknownError, TimeoutError => e
+      self.log_error "Unable to send email: #{e.message}"
+    end
+
+  end
+
+  def self.clogger
+    if @clog.nil?
+      @clog = Logger.new(self.config['log_file_path'],
+                         'daily',
+                         self.config['log_max_days'])
+      @clog.formatter = JSONFormatter.new
+    end
+
+    @clog
+  end
+
+  def self.log_info msg
+    self.clogger.info msg
+  end
+
+  def self.log_error msg
+    self.clogger.error msg
+    self.notify_email
+  end
+
+  class JSONFormatter < Logger::Formatter
+    def call(severity, time, progname, msg)
+      {
+        'timestamp' => time,
+        'severity'  => severity,
+        'content'   => msg,
+      }.to_json + "\n"
+    end
+  end
+
+  def self.run!
+    self.notify_rest_api
+  end
+
+end
+
+VictorOpsNotification.run!

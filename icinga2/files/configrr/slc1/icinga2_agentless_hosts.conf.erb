@@ -1,0 +1,23 @@
+<% agentless_hosts.each do |host, data| %>
+<% if ['SLC1'].include?(data['location']) %>
+object Host "<%= host %>" {
+  import "generic-host"
+  address = "<%= host %>"
+
+<% data.each do |data_key, data_val| %>
+<% if [true, false].include?(data_val) %>
+  vars.<%= data_key %> = <%= data_val %>
+
+<% else %>
+  vars.<%= data_key %> = "<%= data_val %>"
+<% end %>
+<% end %>
+  vars.has_agent = false
+  vars.is_virtual = false
+
+  vars.ping_wpl = 40
+  vars.ping_cpl = 60
+}
+
+<% end %>
+<% end %>

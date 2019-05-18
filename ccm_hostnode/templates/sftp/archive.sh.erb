@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Script to run at first of the month, and archive previous month's uploads.
+
+# configurables to be set by puppet
+sftp_root=<%= @sftp_root %>
+
+# get yesterdays (month end) date, split accordingly
+yesterday=`date -d "-1 days" +%Y%m%d`
+today=`date +%Y%m%d`
+
+# split up our dates
+year=${today:0:4}
+month=${today:4:2}
+yyear=${yesterday:0:4}
+ymonth=${yesterday:4:2}
+
+for i in `ls ${sftp_root}/chroots/|grep -v dev |grep -v archive`; do
+  if [ ! -d "${sftp_root}/chroots/archive/${i}" ]; then
+    mkdir -p "${sftp_root}/chroots/archive/${i}"
+  fi
+  file_count=`find ${sftp_root}/chroots/${i}/inbound/ -name "*.asc" -newermt "${yyear}-${ymonth}-01" ! -newermt "${year}-${month}-01" | wc -l`
+  if [ $file_count -gt 0 ]; then
+    find ${chroot_path}/$i/inbound -type f -name "*.asc" -newermt "${yyear}-${ymonth}-01" ! -newermt "${year}-${month}-01" | \
+    xargs tar -czvf "${sftp_root}/chroots/archive/${i}/${i}-${yyear}-${ymonth}-archived.tar.gz" --remove-files
+  else
+    echo "No files to archive found"
+  fi
+done

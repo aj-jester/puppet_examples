@@ -1,0 +1,33 @@
+input {
+  tcp {
+    port => 5622
+    codec => json
+  }
+}
+
+filter {
+  mutate {
+    add_field => {
+      "path" => "%{[request][path]}"
+    }
+    add_field => {
+      "remote_address" => "%{[request][remote_address]}"
+    }
+    add_field => {
+      "operation" => "%{[request][operation]}"
+    }
+  }
+}
+
+output {
+  if [type] != "log" {
+    slack {
+      url         => "<%= scope['::ccm_elastic::common::logstash_slack_hook'] %>"
+      username    => "vault"
+      icon_emoji  => ":vault:"
+      format      => "*LUKS Key Access*
+      type: `%{type}` operation: `%{operation}`  path: `%{path}`
+      host: `%{remote_address}`  %{error}"
+    }
+  }
+}

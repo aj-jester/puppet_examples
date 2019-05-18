@@ -1,0 +1,77 @@
+input { 
+
+	lumberjack {
+		port => 5000
+		ssl_certificate => "/etc/pki/tls/certs/logstash-forwarder.crt"
+		ssl_key => "/etc/pki/tls/private/logstash-forwarder.key"
+ 		codec => multiline {
+      			pattern => "^%{TIMESTAMP_ISO8601} "
+      			negate => true
+      			what => previous
+    		}
+	}
+
+  
+	tcp {
+		type=>"quickTest"
+		#type=>"adas-restservice"
+    		port => 5002
+ 		codec => multiline {
+      			pattern => "^%{TIMESTAMP_ISO8601} "
+      			negate => true
+      			what => previous
+    		}
+  	}
+}
+
+
+filter {
+  grok {
+    match => [
+      #take all in
+      "message" , "%{TIMESTAMP_ISO8601:eventDate}%{GREEDYDATA:log_data}"
+    ]
+    add_tag => ["matched"]
+    break_on_match => true
+  }
+    if [eventDate] =~ /.+/ and "matched" in [tags]  {
+      mutate {
+        add_field => [ "mytimestamp", "%{eventDate}"]
+        lowercase=> [ type]
+      }
+      date {
+        match => [ "mytimestamp", "YYYY-MM-dd HH:mm:ss,SSS" ]
+        #add_tag => ["timestamp_changed"]
+        timezone => "UTC"
+    }
+    mutate {
+      remove_field => ["mytimestamp" ]
+      remove_tag=> ["multiline" ,"matched"]
+    }
+  }
+}
+
+output {
+
+    if [type] == "adas-pentaho" {
+
+        if [level] == "ERROR" {
+            elasticsearch {
+                index => "%{type}-%{+YYYY.MM.dd}"
+                hosts=>[ "site-elk02.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk03.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk01.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200"]
+            }
+        }
+
+        if [message] =~ ".*[\s\t][\s\t]*select.*" {
+            elasticsearch {
+                index => "%{type}-%{+YYYY.MM.dd}"
+                hosts=>[ "site-elk02.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk03.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk01.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200"]
+            }
+        }
+    }else{
+        elasticsearch {
+                index => "%{type}-%{+YYYY.MM.dd}"
+                hosts=>[ "site-elk02.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk03.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200" ,"site-elk01.<%= @ccm_env -%>.<%= @ccm_dc -%>.ccmteam.com:9200"]
+        }
+    }
+}

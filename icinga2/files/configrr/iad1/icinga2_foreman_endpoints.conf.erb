@@ -1,0 +1,16 @@
+<% foreman_hosts.each do |host, data| %>
+<% if ['IAD1', 'NYC1'].include?(data['location']) %>
+object Endpoint "<%= host %>" {
+  host = "<%= host %>"
+}
+
+<%
+if data['is_virtual'] == 'false'
+  bmc_host = host.split(".").insert(1, 'bmc').join(".")
+%>
+object Endpoint "<%= bmc_host %>" {
+  host = "<%= bmc_host %>"
+}
+<% end %>
+<% end %>
+<% end %>

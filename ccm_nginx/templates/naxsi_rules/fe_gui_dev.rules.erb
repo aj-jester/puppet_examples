@@ -1,0 +1,16 @@
+#LearningMode;
+SecRulesEnabled;
+#SecRulesDisabled;
+DeniedUrl "/RequestDenied";
+
+## Check & Blocking Rules
+CheckRule "$SQL >= 8" BLOCK;
+CheckRule "$RFI >= 8" BLOCK;
+CheckRule "$TRAVERSAL >= 4" BLOCK;
+CheckRule "$EVADE >= 4" BLOCK;
+CheckRule "$XSS >= 8" BLOCK;
+
+## Whitelist Rules
+BasicRule wl:1315 "mz:$HEADERS_VAR:cookie" "msg:Cookies that matches a double encoding";
+BasicRule wl:1005 "mz:$HEADERS_VAR:cookie" "msg:Cookies that matches a mysql keyword (|)";
+BasicRule wl:1002 "mz:$HEADERS_VAR:cookie" "msg:Cookies that matches a 0x, possible hex encoding";

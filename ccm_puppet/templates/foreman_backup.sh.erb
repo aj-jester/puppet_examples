@@ -1,0 +1,51 @@
+#!/bin/bash
+
+#########################
+# Variables from Puppet #
+#########################
+REMOTE_MOUNT="<%= @remote_mount %>"
+REMOTE_VOLUME="<%= @remote_volume %>"
+REMOTE_MOUNT_TYPE="<%= @remote_mount_type %>"
+CLEANUP_OLD_DAYS="<%= @cleanup_old_days %>"
+PIGZ_PROCESSOR_COUNT=<%= @pigz_processor_count %>
+GPG_KEY_ID="<%= @gpg_key_id %>"
+
+######
+BACKUP_FILE_TIME=$(date +%Y-%m-%d_%H-%M-%S)
+BACKUP_PATH="${REMOTE_MOUNT}/<%= @tier %>-<%= @role %>"
+BACKUP_TARBALL_FILE="${BACKUP_PATH}/<%= @fqdn %>_${BACKUP_FILE_TIME}.pgdump.gz.gpg"
+
+if [ $REMOTE_MOUNT_TYPE != "local" ]; then
+
+  # We are backing up to a remote gluster or nfs filesystem, let's ensure it's mounted before we continue.
+  echo "verifying remote filesystem is mounted"
+
+  if grep -qs "${REMOTE_MOUNT}" /proc/mounts; then
+      echo "Remote Filesystem is mounted at ${REMOTE_MOUNT}"
+  else
+      echo "Mounting ${REMOTE_MOUNT_TYPE} ${REMOTE_MOUNT}"
+      mkdir -p "${REMOTE_MOUNT}"
+      mount -t "${REMOTE_MOUNT_TYPE}" "${REMOTE_VOLUME}" "${REMOTE_MOUNT}"
+  fi
+fi
+
+mkdir -p "${BACKUP_PATH}"
+
+/bin/su - postgres -c "pg_dump -Fc foreman" \
+| \
+
+pigz -9 -c -p ${PIGZ_PROCESSOR_COUNT} \
+| \
+
+gpg \
+  --encrypt \
+  --recipient "${GPG_KEY_ID}" \
+  --trust-model always \
+  --batch > "${BACKUP_TARBALL_FILE}"
+
+echo "Cleaning backups older than ${CLEANUP_OLD_DAYS} days"
+find ${BACKUP_PATH} -mtime +${CLEANUP_OLD_DAYS} -type f -delete
+
+if [ $REMOTE_MOUNT_TYPE != "local" ]; then
+  umount "${REMOTE_MOUNT}"
+fi

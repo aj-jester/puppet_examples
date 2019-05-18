@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Run Puppet agent script
+ 
+### HEADER ###
+ 
+LOCKFILE="/var/lock/`basename $0`"
+LOCKFD=98
+ 
+# PRIVATE
+_lock()             { flock -$1 $LOCKFD; }
+_no_more_locking()  { _lock u; _lock xn && rm -f $LOCKFILE; }
+_prepare_locking()  { eval "exec $LOCKFD>\"$LOCKFILE\""; trap _no_more_locking EXIT; }
+ 
+# ON START
+_prepare_locking
+
+# PUBLIC
+# obtain an exclusive lock immediately or fail
+exlock_now() { _lock xn; }
+
+# InfluxDB
+influxdb() {
+<% if @fqdn_location != 'vbox' -%>
+  # Send some stats to influxdb
+  :
+<% else -%>
+  :
+<% end -%>
+}
+
+ctrl_c() {
+  (>&2 echo "Run Puppet aborted.")
+  exit 9
+}
+
+### BEGIN RUN PUPPET ###
+
+trap ctrl_c INT
+
+host_prefix=$(echo "$HOSTNAME" | sed 's/\./_/g')
+
+# Acquire lock
+if exlock_now; then
+
+  echo "Run Puppet once..."
+
+  start=`date +%s`
+
+  # Run Puppet once
+  /opt/puppetlabs/puppet/bin/puppet agent --test "$@"
+  retval=$?
+
+  end=`date +%s`
+
+  case "$retval" in
+
+    0)  echo "The run succeeded with no changes or failures; the system was already in the desired state."
+        ;;
+    1)  echo "The run failed, or wasn't attempted due to another run already in progress."
+        ;;
+    2)  echo "The run succeeded, and some resources were changed."
+        ;;
+    4)  echo "The run succeeded, and some resources failed."
+        ;;
+    6)  echo "The run succeeded, and included both changes and failures."
+        ;;
+    *)  echo "Unknown exit code: $retval"
+        ;;
+  esac
+
+  # Send some stats to Influx (when its setup in IAD1)
+  # influxdb "$host_prefix.status.$retval" "1" "c"
+  # influxdb "$host_prefix.runtime" "$((end-start))000" "ms"
+  # influxdb "agent_run" "1" "c"
+
+  exit $retval
+
+else
+
+  { echo "Run Puppet in progress...retry in a few."; exit 9; }
+
+fi

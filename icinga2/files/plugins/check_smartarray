@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# SmartArray check wrapper
+
+cli=/usr/sbin/ssacli
+EXCLUDE=$(for x in $($cli ctrl all show status | sed -n  's/.*Slot \([[:digit:]]\).*/\1/p') ; do $cli ctrl slot=${x} ld all show 1>/dev/null 2>&1 || echo ${x} ; done)
+if [ "x$EXCLUDE" != "x" ]; then
+/usr/lib64/nagios/plugins/contrib/check_cciss -v -p -e $EXCLUDE
+else 
+/usr/lib64/nagios/plugins/contrib/check_cciss -v -p
+fi

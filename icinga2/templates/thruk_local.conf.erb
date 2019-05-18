@@ -1,0 +1,46 @@
+############################################
+# put your own settings into this file
+# settings from this file will override
+# those from the thruk.conf
+############################################
+use_frames          = 1
+statusmap_default_type=circle
+
+<Component Thruk::Backend>
+    <peer>
+        name    = icinga2-iad1
+        type    = livestatus
+        <options>
+            peer          = icinga-master-1.ops.iad1.ccmteam.com:6558
+        </options>
+    </peer>
+    <peer>
+        name    = icinga2-slc1
+        type    = livestatus
+        <options>
+            peer          = icinga-master-1.ops.slc1.ccmteam.com:6558
+        </options>
+    </peer>
+</Component>
+<Component Thruk::Plugin::Reports2>
+    # execute regular scheduled reports with this nice level
+    #report_nice_level = 5
+
+    # maximum number of running reports at a time
+    #max_concurrent_reports = 2
+
+    # url used to replace relative links in html reports
+    #report_base_url=http://host.local/thruk/cgi-bin/
+
+    # phantomjs is used to convert html pages into pdf
+    #phantomjs = /usr/share/thruk/script/phantomjs
+
+    # pnp export script is used to export pnp graphs into reports
+    #pnp_export = /path/to/pnp_export.sh
+
+    # set the from address used in e-mail reports
+    #report_from_email = User Name <example@mail.com>
+
+    # set the default template used for new reports
+    #default_template = sla_host.tt
+</Component>

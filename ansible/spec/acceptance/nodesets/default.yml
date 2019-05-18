@@ -1,0 +1,10 @@
+---
+HOSTS:
+  beaker-ansible00.local.ccmteam.com:
+    platform: el-7-x86_64
+    hypervisor: vagrant
+    box: ccmteam/centos-7-puppet-base
+    roles: []
+CONFIG:
+  nfs_server: none
+  consoleport: 443

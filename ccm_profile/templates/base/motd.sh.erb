@@ -1,0 +1,32 @@
+System Summary:
+    Host:              <%= scope['::fqdn'] %>
+    OS:                <%= scope['::operatingsystem'] -%> <%=scope['::operatingsystemrelease'] -%> <%= scope['::architecture'] %>
+<%  memory_size = scope['::memorysize_mb'].to_f.ceil
+    memory_type = 'MB'
+    if memory_size > 1024 then
+      memory_type = 'GB'
+      memory_remainder = memory_size % 1024
+      memory_size = memory_size / 1024
+      if memory_remainder > 512
+        memory_size += 1
+      end
+    end
+-%>
+    System:            <%= scope['::processorcount'] -%> CPU, <%= memory_size -%><%= memory_type %> RAM
+
+Hardware:
+    HW:                <%= scope['::manufacturer'] -%> <%= scope['::productname'] %>
+<% if scope['::virtual'] == 'physical' -%>
+    Serial:            <%= scope['::serialnumber'] %>
+<% end -%>
+
+CCM:
+    Location:          <%= scope['::fqdn_location'] %>
+    Tier:              <%= scope['::fqdn_tier'] %>
+    Role:              <%= scope['::fqdn_role'] %>
+    Env:               <%= scope['::app_env'] %>
+
+Puppet:
+    Version:           <%= scope['::clientversion'] %>
+
+<%= @append -%>

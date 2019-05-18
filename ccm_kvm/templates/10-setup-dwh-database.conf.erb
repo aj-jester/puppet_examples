@@ -1,0 +1,12 @@
+#
+# Warning: Managed by Puppet
+#
+DWH_DB_HOST="<%= @ovirt_history_db_host %>"
+DWH_DB_PORT="5432"
+DWH_DB_USER="<%= @ovirt_history_db_user %>"
+DWH_DB_PASSWORD="<%= @ovirt_history_db_pass %>"
+DWH_DB_DATABASE="<%= @ovirt_history_db_name %>"
+DWH_DB_SECURED="False"
+DWH_DB_SECURED_VALIDATION="False"
+DWH_DB_DRIVER="org.postgresql.Driver"
+DWH_DB_URL="jdbc:postgresql://<%= @ovirt_history_db_host %>:5432/<%= @ovirt_history_db_name %>?sslfactory=org.postgresql.ssl.NonValidatingFactory"

@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Warning: Managed by Puppet
+#
+
+EXTRACT_PATH="<%= @extract_path %>"
+DEFAULT_VERSION="<%= @default_version %>"
+
+# Set default sbt.
+/usr/sbin/alternatives --install /usr/bin/sbt sbt ${EXTRACT_PATH}/sbt-${DEFAULT_VERSION}/bin/sbt 100
+/usr/sbin/alternatives --set sbt ${EXTRACT_PATH}/sbt-${DEFAULT_VERSION}/bin/sbt
+
+# Get all installed sbt alternatives except default version.
+sbt_alternatives=$(/usr/sbin/alternatives --display sbt | grep priority | grep -v ${DEFAULT_VERSION} | cut -d' ' -f1)
+
+# Remove sbt alternatives that do not match the default version of sbt.
+for sbt_path in $sbt_alternatives; do
+  /usr/sbin/alternatives --remove sbt ${sbt_path}
+done

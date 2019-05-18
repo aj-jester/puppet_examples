@@ -1,0 +1,710 @@
+object CheckCommand "ccm-disk" {
+  command = [ PluginDir + "/check_disk" ]
+
+  arguments = {
+    "-u" = {
+      value = "$disk_units$"
+      order = 1
+    }
+    "-w" = {
+      value = "$disk_space_wfree$"
+      order = 2
+    }
+    "-c" = {
+      value = "$disk_space_cfree$"
+      order = 3
+    }
+    "-W" = {
+      value = "$disk_inode_wfree$"
+      order = 4
+    }
+    "-K" = {
+      value = "$disk_inode_cfree$"
+      order = 5
+    }
+    "-A" = {
+      set_if = "$disk_all$"
+      order = 6
+    }
+    "-i" = {
+      value = "$disk_ignore_ereg_path$"
+      repeat_key = true
+      order = 7
+    }
+    "-X" = {
+      value = "$disk_exclude_type$"
+      repeat_key = true
+      order = 8
+    }
+  }
+
+  vars.disk_units = "MB"
+  vars.disk_space_wfree = "20%"
+  vars.disk_space_cfree = "10%"
+  vars.disk_inode_wfree = "20%"
+  vars.disk_inode_cfree = "10%"
+  vars.disk_all = true
+  vars.disk_ignore_ereg_path = [ "/vol1/docker.*", "/var/lib/docker.*", "/vol1/dat/.snapshot.*", "/mnt/backups.*" ]
+  vars.disk_exclude_type = [ "none", "tmpfs", "sysfs", "proc", "devtmpfs", "devfs", "mtmfs", "tracefs", "cgroup", "fuse.gvfsd-fuse", "fuse.gvfs-fuse-daemon", "fdescfs" ]
+
+}
+
+object CheckCommand "redis-response-time" {
+  command = [ PluginContribDir + "/check_redis.pl", "-H", "$address$", "-A", "-f" ]
+
+  arguments = {
+    "-p" = "$port$"
+    "-P" = "$service.perfdata$"
+    "--response_time" = "WARN:>$warn$,CRIT:>$crit$,ABSENT:CRITICAL"
+  }
+
+  vars.warn = 1
+  vars.crit = 2
+  vars.port = "6379"
+
+}
+
+object CheckCommand "redis-hitrate" {
+  command = [ PluginContribDir + "/check_redis.pl", "-H", "$address$", "-f" ]
+
+  arguments = {
+    "-p" = "$port$"
+    "--hitrate" = "WARN:<$warn$,CRIT:<$crit$,ABSENT:CRITICAL"
+  }
+
+  vars.warn = 65
+  vars.crit = 50
+  vars.port = "6379"
+
+}
+
+object CheckCommand "redis-memory" {
+  command = [ PluginContribDir + "/check_redis.pl", "-H", "$address$", "-f" ]
+
+  arguments = {
+    "-p" = "$port$"
+    "--total_memory" = "$redis_memory$"
+    "--memory_utilization" = "WARN:>$warn$,CRIT:>$crit$,ABSENT:CRITICAL"
+  }
+
+  vars.warn = 4
+  vars.crit = 6
+  vars.port = "6379"
+
+  vars.redis_memory = "8G"
+
+}
+
+object CheckCommand "redis-get" {
+  command = [ PluginContribDir + "/check_redis_get.sh" ]
+}
+
+object CheckCommand "memory" {
+  command = [ PluginContribDir + "/check_mem.sh" ]
+
+  arguments = {
+    "-w" = "$mem_warn$"
+    "-c" = "$mem_crit$"
+    "-W" = "$swap_warn$"
+    "-C" = "$swap_crit$"
+  }
+
+  vars.mem_warn = 70
+  vars.mem_crit = 80
+  vars.swap_warn = 70
+  vars.swap_crit = 80
+
+}
+
+object CheckCommand "cloudera-manager-license" {
+  command = [ PluginContribDir + "/check_cloudera_manager_license.pl", "-H", "$address$" ]
+
+  arguments = {
+    "-u" = "$username$"
+    "-p" = "$password$"
+    "-w" = "$warn$"
+    "-c" = "$crit$"
+  }
+
+  vars.warn = 60
+  vars.crit = 30
+
+  vars.username = "nagios"
+  vars.password = "<%= @cmd_creds['cloudera_manager_nagios'] %>"
+
+}
+
+object CheckCommand "cloudera-manager-metrics" {
+  command = [ PluginContribDir + "/check_cloudera_manager_metrics.pl", "-H", "$address$" ]
+
+  arguments = {
+    "-u" = "$username$"
+    "-p" = "$password$"
+    "-w" = "$warn$"
+    "-c" = "$crit$"
+    "--cluster" = "$cluster$"
+    "--service" = "$service$"
+    "--metrics" = "$metrics$"
+  }
+
+  vars.username = "nagios"
+  vars.password = "<%= @cmd_creds['cloudera_manager_nagios'] %>"
+
+}
+
+object CheckCommand "mongodb-basic" {
+  command = [ PluginContribDir + "/check_mongodb.py", "-H", "$address$", "--perf-data" ]
+
+  arguments = {
+    "--user"     = "$username$"
+    "--pass"     = "$password$"
+    "--warning"  = "$warn$"
+    "--critical" = "$crit$"
+    "--action"   = "$action$"
+    "--port"     = "$port$"
+  }
+
+  vars.username = "ccmmonitor"
+  vars.password = "<%= @cmd_creds['mongodb_ccmmonitor'] %>"
+  vars.port     = "27017"
+
+}
+
+object CheckCommand "adas-http-headers" {
+  import "ipv4-or-ipv6"
+
+  command = [ PluginDir + "/check_http", "-k", "Authorization: Bearer eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFMyNTYifQ.eyJ0ZW5hbnRfaWQiOjI2MDAyLCJ1c2VyX2lkIjo5OTk5OSwibG9jYWxUaW1lWm9uZU9mZnNldEhycyI6NSwiaXNJbXBlcnNvbmF0ZVJlcXVlc3QiOnRydWUsIl9pZCI6IjU0NjY0MzVhN2ZhODQzMDAwMDEwYmU5YiIsInRlYW1faWQiOiJTVURPIiwicmVzb2x2ZWRSb2xlcyI6WyJDTCJdLCJqdGkiOiI1OGI0YzQzY2IyMDIyOTQ5MmQxNGExNzQiLCJlbWFpbCI6InN1ZG9Ac3Vkby5jb20ifQ.ZW7E4TwMRrP_ZysVItzPp4uEUjXwdAZuW1RerJUqUjw", "-k", "CI_ADAS_Impersonate: eyAidGVuYW50X2lkIjoxNjAwMiwgIm9yZ19ndWlkIjoiIiwgInRlYW1faWQiOiIwMEUzMTAwMDAwMGV1N1BFQVEiLCAidXNlcl9pZCI6MjksICJ1c2VyX2d1aWQiOiIiLCAiZW1haWwiOiJzYW1AZW50ZWxvLmNvbSIsICJyZXNvbHZlZFJvbGVzIjpbIlNNIl0sICJsb2NhbFRpbWVab25lT2Zmc2V0SHJzIjogNSB9" ]
+
+  arguments = {
+    "-H" = "$http_vhost$"
+    "-u" = "$http_uri$"
+    "-p" = "$http_port$"
+    "-t" = {
+      value = "$http_timeout$"
+      description = "Seconds before connection times out"
+    }
+    "-r" = {
+      value = "$http_expect_body_regex$"
+      description = "Search page for regex"
+      order = 2
+    }
+  }
+
+  vars.http_vhost = "$check_address$"
+  vars.http_ssl = false
+  vars.http_sni = false
+  vars.http_linespan = false
+  vars.http_invertregex = false
+  vars.check_ipv4 = "$http_ipv4$"
+  vars.check_ipv6 = "$http_ipv6$"
+  vars.http_verbose = false
+}
+
+object CheckCommand "iftrafficpy" {
+command = [ PluginContribDir + "/check_interface_traffic.py", "-u", "Mbps", "-b", "1000" ]
+
+  arguments = {
+    "-w" = "$iftrafficpy_warn$"
+    "-c" = "$iftrafficpy_crit$"
+    "-i" = "$iftrafficpy_int$"
+  }
+
+  vars.iftrafficpy_warn = 70
+  vars.iftrafficpy_crit = 80
+}
+
+object CheckCommand "iflink" {
+command = [ PluginContribDir + "/check_nic_link.pl" ]
+
+  arguments = {
+    "-n" = "$iflink_int$"
+  }
+}
+
+object CheckCommand "ifbond" {
+  command = [ PluginContribDir + "/check_linux_bonding", "-s" ]
+
+}
+
+object CheckCommand "ipmi-sensor-real" {
+  command = [ SudoCmd, PluginContribDir + "/check_ipmi_sensor" ]
+
+}
+
+object CheckCommand "mdadm" {
+  command = [ PluginContribDir + "/check_linux_raid", "-e" ]
+
+  arguments = {
+    "--timeout" = "$timeout$"
+  }
+
+  vars.timeout = "15"
+}
+
+object CheckCommand "adaptec" {
+  command = [ SudoCmd, PluginContribDir + "/check_adaptec_raid" ]
+
+}
+
+object CheckCommand "megaraid" {
+  command = [ SudoCmd, PluginContribDir + "/check_megaraid_sas", "--consistency_check_is_ok" ]
+
+}
+
+object CheckCommand "smartarray" {
+  command = [ SudoCmd, PluginContribDir + "/check_smartarray" ]
+
+}
+
+object CheckCommand "netapp-cdot-clusterlinks" {
+command = [ PluginContribDir + "/check_cdot_clusterlinks.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+object CheckCommand "netapp-cdot-disk" {
+command = [ PluginContribDir + "/check_cdot_disk.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+
+object CheckCommand "netapp-cdot-global" {
+command = [ PluginContribDir + "/check_cdot_global.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+    "--plugin" = "$plugin$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+
+object CheckCommand "netapp-cdot-interfaces" {
+command = [ PluginContribDir + "/check_cdot_interfaces.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+
+object CheckCommand "netapp-cdot-multipath" {
+command = [ PluginContribDir + "/check_cdot_multipath.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+
+object CheckCommand "netapp-cdot-volume" {
+command = [ PluginContribDir + "/check_cdot_volume.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--username" = "$username$"
+    "--password" = "$password$"
+    "--size-warning" = "$size_warning$"
+    "--size-critical" = "$size_critical$"
+    "--inode-warning" = "$inode_warning$"
+    "--inode-critical" = "$inode_critical$"
+  }
+
+  vars.username = "nagiosro"
+  vars.password = "<%= @cmd_creds['netapp_nagiosro'] %>"
+}
+
+object CheckCommand "ccm-ilo2-health" {
+command = [ PluginContribDir + "/ccm_check_ilo2_health.pl", "--host", "$address$" ]
+
+  arguments = {
+    "--user" = "$user$"
+    "--password" = "$password$"
+    "--ilo3" = {
+        set_if = "$ilo3$"
+      }
+    "--fanredundancy" = {
+        set_if = "$fanredundancy$"
+      }
+    "--checkdrives" = {
+        set_if = "$checkdrives$"
+      }
+    "--powerredundancy" = {
+        set_if = "$powerredundancy$"
+      }
+    }
+
+  vars.user = "ccmadmin"
+  vars.password = "<%= @cmd_creds['ipmi_ccmadmin'] %>"
+  vars.ilo3 = true
+  vars.fanredundancy = true
+  vars.checkdrives = true
+  vars.powerredundancy = true
+}
+
+object CheckCommand "elasticsearch-health" {
+  command = [ "/usr/bin/scl", "enable", "rh-ruby24", "--",  "ruby", PluginContribDir + "/check_elasticsearch_health.rb", "--ip", "$address$" ]
+
+}
+
+object CheckCommand "snmp-environment" {
+command = [ PluginContribDir + "/check_snmp_environment.pl", "--hostname", "$address$" ]
+
+  arguments = {
+    "--community" = "$community$"
+    "--type" = "$type$"
+  }
+
+  vars.community = "public"
+}
+
+object CheckCommand "ldap-syncrepl" {
+command = [ PluginContribDir + "/check_syncrepl_extended" ]
+
+  arguments = {
+    "--basedn" = "$basedn$"
+    "--dn" = "$dn$"
+    "--pwd" = "$pwd$"
+    "--quiet" = {
+        set_if = "$quiet$"
+      }
+    "--nagios" = {
+        set_if = "$nagios$"
+      }
+
+    "--provider" = "$provider_ldap_uri$"
+    "--consumer" = "$consumer_ldap_uri$"
+
+  }
+
+  vars.basedn = "dc=ccmteam,dc=com"
+  vars.dn = "cn=synchronisator,dc=ccmteam,dc=com"
+  vars.quiet = true
+  vars.nagios = true
+  vars.pwd = "<%= @cmd_creds['ldap'] %>"
+  vars.provider_ldap_uri = "ldaps://openldap01.ops.slc1.ccmteam.com"
+  vars.consumer_ldap_uri = "ldaps://" + "$host.name$"
+}
+
+object CheckCommand "pseudo" {
+  command = [ PluginContribDir + "/check_pseudo" ]
+
+}
+
+object CheckCommand "clamav-signatures" {
+  command = [ PluginContribDir + "/check_clamav_signatures" ]
+
+  arguments = {
+    "-w" = "$warn$"
+    "-c" = "$crit$"
+  }
+
+  vars.warn = 2
+  vars.crit = 3
+
+}
+
+object CheckCommand "ro-mounts" {
+  command = [ PluginContribDir + "/check_ro_mounts.pl" ]
+
+  arguments = {
+    "-X" = {
+      value = "$ro_mounts_exclude_type$"
+      repeat_key = true
+    }
+
+    "-x" = {
+      value = "$ro_mounts_exclude_path$"
+      repeat_key = true
+    }
+  }
+
+  vars.ro_mounts_exclude_type = [ "iso9660", "lustre", "tmpfs", "sysfs" ]
+  vars.ro_mounts_exclude_path = [ "*snapshot*", "/mnt/syslog_ro" ]
+
+}
+
+object CheckCommand "mysqld-metrics" {
+  command = [ PluginContribDir + "/check_mysqld.pl", "-H", "localhost" ]
+
+  arguments = {
+    "--username" = {
+      value = "$mysqld_metrics_username$"
+    }
+    "--password" = {
+      value = "$mysqld_metrics_password$"
+    }
+    "--variables" = {
+      value = "$mysqld_metrics_variables$"
+    }
+    "--perfparse" = {
+      set_if = "$mysqld_metrics_perfparse$"
+    }
+    "--warn" = {
+      value = "<$mysqld_metrics_warning_uptime$,>$mysqld_metrics_warning_threads_connected$,,,,,,"
+    }
+    "--crit" = {
+      value = "<$mysqld_metrics_critical_uptime$,>$mysqld_metrics_critical_threads_connected$,,,,,,"
+    }
+    "--perfvars" = {
+      value = "$mysqld_metrics_perfvars$"
+    }
+  }
+
+  vars.mysqld_metrics_username = "root"
+  vars.mysqld_metrics_password = ""
+  vars.mysqld_metrics_variables = "uptime,threads_connected,threads_cached,threads_running,slow_queries,open_files,threads_created,connections"
+  vars.mysqld_metrics_perfparse = true
+
+  vars.mysqld_metrics_warning_uptime = "1800"
+  vars.mysqld_metrics_warning_threads_connected = "400"
+
+  vars.mysqld_metrics_critical_uptime = "900"
+  vars.mysqld_metrics_critical_threads_connected = "450"
+
+  vars.mysqld_metrics_perfvars = "*"
+}
+
+object CheckCommand "neo4j-stats" {
+  command = [ PluginContribDir + "/check_neo4j_stats.pl", "-H", "$address$" ]
+
+  arguments = {
+    "-u" = "$username$"
+    "-p" = "$password$"
+    "-w" = "$warn$"
+    "-c" = "$crit$"
+    "-P" = "$port$"
+  }
+
+  vars.warn = 60
+  vars.crit = 30
+
+  vars.username = "neo4j"
+  vars.password = "<%= @cmd_creds['neo4j'] %>"
+
+  vars.port = 7474
+
+}
+
+object CheckCommand "ntp-sync" {
+  command = [ PluginDir + "/check_ntp", "-H", "localhost" ]
+
+  arguments = {
+    "-w" = "$ntp_sync_warn$"
+    "-c" = "$ntp_sync_crit$"
+  }
+
+  vars.ntp_sync_warn = 3
+  vars.ntp_sync_crit = 5
+}
+
+object CheckCommand "ossec-plugin" {
+  command = [ SudoCmd, PluginContribDir + "/check_ossec.sh"]
+
+  arguments = {
+    "-s" = {
+      set_if = "$service$"
+      value  = "$service$"
+    }
+    "-w" = "$warn$"
+    "-c" = "$crit$"
+  }
+
+  vars.service = "execd"
+  vars.warn    = 1
+  vars.crit    = 3
+}
+
+object CheckCommand "domain" {
+  command = [ PluginContribDir + "/check_domain.sh" ]
+
+  arguments = {
+    "--domain" = "$domain$"
+    "--warning" = "$warning$"
+    "--critical" = "$critical$"
+    "--path" = "$path$"
+  }
+
+  vars.warning = 21
+  vars.critical = 14
+  vars.path = "/usr/bin/whois"
+}
+
+object CheckCommand "ssl-cert" {
+command = [ PluginContribDir + "/check_ssl_cert" ]
+
+  arguments = {
+    "--host" = "$host$"
+    "--warning" = "$warning$"
+    "--critical" = "$critical$"
+    "--file" = {
+      value = "$file$"
+    }
+    "--ignore-ocsp" = {
+      set_if = "$ignore_ocsp$"
+    }
+  }
+
+  vars.host = "localhost"
+  vars.warning = 60
+  vars.critical = 30
+  vars.ignore_ocsp = true
+}
+
+object CheckCommand "consul-health" {
+
+  command = [ PluginContribDir + "/check_consul_health.py", "--host", "$host.name$" ]
+
+  arguments = {
+    "--addr"        = "$addr$"
+    "--dc"          = "$datacenter$"
+    "--ServiceName" = {
+      set_if = "$servicename$"
+      value  = "$servicename$"
+    }
+    "--CheckID" = {
+      set_if = "$checkid$"
+      value  = "$checkid$"
+    }
+  }
+
+  vars.addr = "http://localhost:8500"
+
+}
+
+object CheckCommand "postgresql-activity" {
+  command = [ PluginContribDir + "/check_pgactivity", "-h", "$address$" ]
+
+  arguments = {
+    "--username"    = "$username$"
+    "--dbname"      = "$dbname$"
+    "--format"      = "$format$"
+    "--status-file" = "$status_file$"
+
+    "--service"  = "$service$"
+
+    "--warning" = {
+      set_if = "$warning$"
+      value  = "$warning$"
+    }
+    "--critical" = {
+      set_if = "$critical$"
+      value  = "$critical$"
+    }
+  }
+
+  vars.username    = "icinga"
+  vars.dbname      = "postgres"
+  vars.format      = "nagios"
+  vars.status_file = "/var/spool/icinga2/check_pgactivity.data"
+
+}
+
+object CheckCommand "jenkins-nodes" {
+  command = [ PluginContribDir + "/check_jenkins_nodes.pl" ]
+
+  arguments = {
+    "-s" = "$server$"
+    "-w" = "$warning$"
+    "-c" = "$critical$"
+    "-u" = "$username$"
+    "-p" = "$password$"
+  }
+
+  vars.warning = 1
+  vars.critical = 2
+  vars.server = "http://" + "$host.name$"
+  vars.username = "jenkins"
+  vars.password = "<%= @cmd_creds['jenkins'] %>"
+
+}
+
+object CheckCommand "ipa-cipa" {
+
+  command = [ PluginContribDir + "/check_cipa", "-H", "$address$" ]
+
+  arguments = {
+    "-d" = "$domain$"
+    "-D" = "cn=Directory Manager"
+    "-W" = "$password$"
+    "-n" = "all"
+  }
+
+  vars.domain = "ccmteam.com"
+  vars.password = "<%= @cmd_creds['ipa'] %>"
+
+}
+
+object CheckCommand "scrape-logfiles" {
+
+  command = [ SudoCmd, PluginContribDir + "/check_logfiles" ]
+
+  arguments = {
+    "--tag"             = "$tag$"
+    "--logfile"         = "$logfile$"
+    "--criticalpattern" = "$criticalpattern$"
+  }
+
+  vars.tag             = "sane_default"
+  vars.logfile         = "/var/log/messages"
+  vars.criticalpattern = "Sunshine and lollipops, rainbows and everything"
+
+}
+
+object CheckCommand "squid-test" {
+
+  command = [ PluginContribDir + "/check_squid.pl" ]
+
+  arguments = {
+    "-u" = "$remote_domain$"
+    "-p" = "$proxy_server$"
+    "-l" = "$port$"
+    "-e" = "$http_code$"
+  }
+
+  vars.remote_domain = "http://www.apache.org"
+  vars.proxy_server  = "proxy.ops.iad1.ccmteam.com"
+  vars.port          = "3128"
+  vars.http_code     = "200"
+
+}
+
+object CheckCommand "configrr" {
+  command = [ "/usr/bin/scl", "enable", "rh-ruby24", "--",  "ruby", PluginContribDir + "/check_configrr.rb" ]
+
+  arguments = {
+    "--action"     = "$action$"
+    "--state_file" = "$state_file$"
+    "--warning"    = "$warning$"
+    "--critical"   = "$critical$"
+  }
+
+  vars.action     = "none"
+  vars.state_file = "/var/tmp/configrr_state.json"
+  vars.warning    = 1
+  vars.critical   = 0
+
+}

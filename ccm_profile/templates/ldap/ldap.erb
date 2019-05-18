@@ -1,0 +1,12 @@
+## This file is under the control of the Puppet Master
+## Do not bother making changes here, they will be reverted.
+
+BASE dc=ccmteam, dc=com
+URI ldap://<%= @ldap_server %>
+<% if @operatingsystem == "CentOS" %>
+TLS_CACERT /etc/openldap/certs/puppet3_ca-bundle.crt
+<% end %>
+<% if @operatingsystem == "Debian" %>
+TLS_CACERT /etc/ldap/ca-bundle.crt
+<% end %>
+TLS_REQCERT demand

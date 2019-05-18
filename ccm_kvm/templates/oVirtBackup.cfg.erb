@@ -1,0 +1,21 @@
+[config]
+
+vm_names: <%= @vms %>
+vm_middle=_
+snapshot_description=Snapshot for backup script
+server=<%= @ovirt_engine %>
+username=<%= @username %>
+password=<%= @password %>
+export_domain=<%= @export_domain %>
+timeout=5
+cluster_name=<%= @cluster %>
+backup_keep_count=<%= @backup_keep_count %>
+backup_keep_count_by_number=<%= @backup_keep_count %>
+dry_run=<%= @dry_run %>
+vm_name_max_length=<%= @vm_name_max_length %>
+use_short_suffix=False
+storage_domain=<%= @storage %>
+storage_space_threshold=0.1
+logger_fmt=%(asctime)s: %(message)s
+logger_file_path=
+persist_memorystate=False

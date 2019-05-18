@@ -1,0 +1,11 @@
+{
+  "tier": "<%= @tier %>",
+  "role": "<%= @role %>",
+  "environment": "<%= @environment %>",
+  "app-env": "<%= @facts['app_env'] %>",
+  "fqdn-location": "<%= @facts['fqdn_location'] %>",
+<% if @facts['ccm_raid'] -%>
+  "ccm-raid": "<%= @facts['ccm_raid'] %>",
+<% end -%>
+  "ccm-interfaces-link-up": "<%= @facts['ccm_interfaces_link_up'] %>"
+}

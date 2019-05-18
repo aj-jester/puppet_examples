@@ -1,0 +1,8 @@
+---
+- hosts: ppt
+  tasks:
+    - name: R10K deploy to {{ environments  }}
+      command: /usr/local/bin/r10k_deploy.sh {{ environments }}
+      register: r10k_deploy
+
+    - debug: msg="{{ r10k_deploy.stdout }}"

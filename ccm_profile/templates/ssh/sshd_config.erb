@@ -1,0 +1,80 @@
+#
+# Warning: Managed by Puppet
+#
+
+#Port 22
+#AddressFamily any
+#ListenAddress 0.0.0.0
+#ListenAddress ::
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging
+SyslogFacility AUTHPRIV
+#LogLevel INFO
+
+# Authentication:
+
+#LoginGraceTime 2m
+#PermitRootLogin yes
+#StrictModes yes
+#MaxAuthTries 6
+#MaxSessions 10
+
+AuthorizedKeysFile	.ssh/authorized_keys
+
+# To disable tunneled clear text passwords, change to no here!
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+
+# GSSAPI options
+#GSSAPIAuthentication yes
+GSSAPICleanupCredentials no
+#GSSAPIStrictAcceptorCheck yes
+#GSSAPIKeyExchange no
+#GSSAPIEnablek5users no
+
+# client options
+X11Forwarding yes
+
+# Banner path
+Banner /etc/ssh/banner
+
+# Accept locale-related environment variables
+AcceptEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES
+AcceptEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
+AcceptEnv LC_IDENTIFICATION LC_ALL LANGUAGE
+AcceptEnv XMODIFIERS
+
+# override default of no subsystems
+<% if @sftp_chroot %>
+Subsystem	sftp	internal-sftp -f LOCAL6 -l VERBOSE
+<% else %>
+Subsystem       sftp    /usr/libexec/openssh/sftp-server
+<% end %>
+
+KerberosAuthentication no
+PubkeyAuthentication yes
+UsePAM yes
+AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys
+GSSAPIAuthentication yes
+AuthorizedKeysCommandUser nobody
+
+match User root
+  PasswordAuthentication yes
+
+<% if @fqdn_location == 'vbox' %>
+match User vagrant
+  PasswordAuthentication yes
+<% end %>
+
+<% if @sftp_chroot %>
+Match group sftp_chroot
+  ChrootDirectory %h
+  PasswordAuthentication no
+  AllowTcpForwarding no
+  ForceCommand internal-sftp -f LOCAL6 -l VERBOSE
+  X11Forwarding no
+<% end %>

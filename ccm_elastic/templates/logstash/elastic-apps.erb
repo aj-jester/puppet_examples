@@ -1,0 +1,61 @@
+input {
+  log4j {
+    mode => server
+    host => '<%= @fqdn %>'
+    port => 5622
+    type => 'spark_streaming_opp_management_dev'
+  }
+  log4j {
+    mode => server
+    host => '<%= @fqdn %>'
+    port => 4622
+    type => 'spark_streaming_opp_management_qa'
+  }
+  log4j {
+    mode => server
+    host => '<%= @fqdn %>'
+    port => 3622
+    type => 'spark_streaming_opp_management_prd'
+  }
+  log4j {
+    mode => server
+    host => '<%= @fqdn %>'
+    port => 2622
+    type => 'spark_streaming_opp_management_stg'
+  }
+  udp { 
+    port => "9999" 
+    type => 'fe_gui_udp'
+  }
+  tcp { 
+    port => "9998" 
+    type => 'fe_gui_tcp'
+  }
+}
+
+output {
+  if [type] == "spark_streaming_opp_management_prd" {
+    elasticsearch {
+      index => "spark_streaming_opp_management_v1_prd_indx"
+      hosts => <%= scope['ccm_elastic::common::logstash_elasticsearch_hosts']  %>
+    }
+  }
+  if [type] == "spark_streaming_opp_management_stg" {
+    elasticsearch {
+      index => "spark_streaming_opp_management_v1_stg_indx"
+      hosts => <%= scope['ccm_elastic::common::logstash_elasticsearch_hosts']  %>
+    }
+  }
+  if [type] == "spark_streaming_opp_management_dev" {
+    elasticsearch {
+      index => "spark_streaming_opp_management_v1_dev_indx"
+      hosts => <%= scope['ccm_elastic::common::logstash_elasticsearch_hosts']  %>
+    }
+  }
+  if [type] == "spark_streaming_opp_management_qa" {
+    elasticsearch {
+      index => "spark_streaming_opp_management_v1_qa_indx"
+      hosts => <%= scope['ccm_elastic::common::logstash_elasticsearch_hosts']  %>
+    }
+  }
+}

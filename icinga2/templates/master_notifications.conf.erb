@@ -1,0 +1,55 @@
+/**
+ *
+ * Managed by Puppet
+ *
+ * Notifications apply
+ */
+
+apply Notification "mail-basic" to Host {
+  import "mail-host-notification"
+
+  users = ["mail-nagios-alerts"]
+  interval = 0
+  period = "24x7"
+
+  assign where host.zone == "master"
+}
+
+apply Notification "mail-basic" to Service {
+  import "mail-service-notification"
+
+  users = ["mail-nagios-alerts"]
+  interval = 0
+  period = "24x7"
+
+  assign where host.zone == "master"
+}
+
+apply Notification "victorops-basic" to Host {
+  import "victorops-host-notification"
+
+  users = ["victorops-techops"]
+  interval = 0
+  period = "24x7"
+
+  assign where host.zone == "master"
+}
+
+apply Notification "victorops-basic" to Service {
+  import "victorops-service-notification"
+
+  users = ["victorops-techops"]
+  interval = 0
+  period = "24x7"
+
+  if (service.vars.notify.victorops_warn_unknown == true) {
+
+    states = [ OK, Critical, Warning, Unknown ]
+  } else {
+
+    states = [ OK, Critical ]
+  }
+
+  assign where host.zone == "master"
+  ignore where service.vars.notify.victorops_basic == false
+}

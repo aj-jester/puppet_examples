@@ -1,0 +1,32 @@
+# .bash_profile for root
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+fi
+
+# User specific environment and startup programs
+
+# Create history file for each engineer entrusted to use the root account
+export HISTFILE=/root/.bash_history.$(who -m | cut -f2 -d! | cut -f1 -d' ')
+export HISTSIZE=500000
+
+export EDITOR=vi
+#set -o vi
+
+# Umask to be 022 or better
+umask 022
+
+# Standard Prompt is  host:user#
+PS1="[\[\033[1;31m\]\u@\h\[\033[0m\] \W]# "
+
+# Command Aliases
+# Please do not re-alaised common commands  i.e. alias -x ls="ls -la"
+alias dud="du -kd --max-depth=0 | sort -n"
+alias psg="ps -cef | grep -v grep | grep -i "
+alias pa="/opt/ccm/bin/runpuppet.sh"
+alias puppet="/opt/puppetlabs/puppet/bin/puppet"
+
+# Set path
+PATH=$PATH:/usr/local/bin:/opt/puppetlabs/bin:<%= @path %>
+export PATH

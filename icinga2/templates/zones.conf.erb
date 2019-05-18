@@ -1,0 +1,51 @@
+/*
+ * Managed by Puppet
+ */
+
+<% if ['master', 'satellite'].include?(@node_type) %>
+  
+object Endpoint "<%= @master_host %>" {
+  host = "<%= @master_host %>"
+}
+
+object Zone "master" {
+  endpoints = [ "<%= @master_host %>" ]
+}
+
+<% @satellite_hosts.each do |host| %>
+object Endpoint "<%= host %>" {
+  host = "<%= host %>"
+}
+<% end %>
+
+<% unless @satellite_hosts.empty? %>
+object Zone "satellite" {
+  endpoints = [ "<%= @satellite_hosts.join('", "') %>" ]
+  parent = "master"
+}
+<% end %>
+
+<% else %>
+  
+<% @satellite_hosts.each do |host| %>
+object Endpoint "<%= host %>" {
+}
+<% end %>
+
+object Zone "satellite" {
+  endpoints = [ "<%= @satellite_hosts.join('", "') %>" ]
+}
+
+object Endpoint "<%= @fqdn %>" {
+}
+
+object Zone "<%= @fqdn %>" {
+  endpoints = [ "<%= @fqdn %>" ]
+  parent = "satellite"
+}
+
+<% end %>
+
+object Zone "global-templates" {
+  global = true
+}

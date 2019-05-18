@@ -1,0 +1,88 @@
+<% 
+facter_kv = Configrr::Hosts.consul_hosts('facter/node/')
+icinga_kv = Configrr::Hosts.consul_hosts('icinga/node/')
+
+# Facter
+facter_kv.each do |host, data| %>
+object Host "<%= host %>" {
+  import "generic-host"
+  address = "<%= host %>"
+  notes_url = "https://ppt-foreman.ccmteam.com/hosts/<%= host %>"
+
+<% data.each do |data_key, data_val| %>
+<% if data_key == 'ccm-interfaces-link-up' %>
+<% data_val.split(",").each do |split_val| %>
+  vars["facter"]["<%= data_key %>"]["<%= split_val %>"] = true
+<% end %>
+<% elsif ['true', 'false'].include?(data_val) %>
+  vars["facter"]["<%= data_key %>"] = <%= data_val %>
+<% else %>
+  vars["facter"]["<%= data_key %>"] = "<%= data_val %>"
+<% end %>
+<% end %>
+
+<% if icinga_kv.key?(host) %>
+<% icinga_kv[host].each do |data_key, data_val| %>
+<% if ['true', 'false'].include?(data_val) %>
+  vars["icinga"]["<%= data_key %>"] = <%= data_val %>
+<% else %>
+  vars["icinga"]["<%= data_key %>"] = "<%= data_val %>"
+<% end %>
+
+<% end %>
+<% end %>
+
+  vars["local"]["consul"] = true
+
+  vars["ping_wpl"] = 40
+  vars["ping_cpl"] = 60
+}
+
+object Endpoint "<%= host %>" {
+  host = "<%= host %>"
+}
+
+object Zone "<%= host %>" {
+  endpoints = ["<%= host %>"]
+  parent = "satellite"
+}
+
+<%
+# If a node has some form of raid we assume its hardware so it should have a BMC
+if data.key?('ccm-raid')
+  bmc_host = host.split(".").insert(1, 'bmc').join(".")
+%>
+object Host "<%= bmc_host %>" {
+  import "generic-host"
+  address = "<%= bmc_host %>"
+  notes_url = "https://ppt-foreman.ccmteam.com/hosts/<%= host %>"
+
+<% if icinga_kv.key?(bmc_host) %>
+<% icinga_kv[bmc_host].each do |data_key, data_val| %>
+<% if ['true', 'false'].include?(data_val) %>
+  vars["icinga"]["<%= data_key %>"] = <%= data_val %>
+<% else %>
+  vars["icinga"]["<%= data_key %>"] = "<%= data_val %>"
+<% end %>
+
+<% end %>
+<% end %>
+
+  vars["facter"]["app-env"] = "<%= data['app-env']  %>"
+  vars["local"]["bmc"] = true
+
+  vars["ping_wpl"] = 40
+  vars["ping_cpl"] = 60
+}
+
+object Endpoint "<%= bmc_host %>" {
+  host = "<%= bmc_host %>"
+}
+
+object Zone "<%= bmc_host %>" {
+  endpoints = ["<%= bmc_host %>"]
+  parent = "satellite"
+}
+<% end %>
+
+<% end %>

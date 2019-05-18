@@ -1,0 +1,159 @@
+#!/bin/bash
+
+# Executables
+TAR="/bin/tar"
+MONGO="/bin/mongo"
+LVCREATE="/sbin/lvcreate"
+LVREMOVE="/sbin/lvremove"
+CRYPTSETUP="/sbin/cryptsetup"
+GPG="/bin/gpg"
+
+set -o nounset
+set -o errexit
+
+#########################
+# Variables from Puppet #
+#########################
+REMOTE_MOUNT_TYPE="<%= @remote_mount_type %>"
+REMOTE_VOLUME="<%= @remote_volume %>"
+REMOTE_MOUNT_DIR="<%= @remote_mount_dir %>"
+
+MONGODB_PORT=<%= @mongodb_port %>
+MONGODB_USERNAME="<%= @mongodb_username %>"
+MONGODB_PASSWORD='<%= @mongodb_password %>'
+MONGODB_AUTHDB="<%= @mongodb_authdb %>"
+
+VAULT_API_URI="<%= @vault_api_uri %>"
+VAULT_USERNAME="<%= @vault_username %>"
+VAULT_PASSWORD="<%= @vault_password %>"
+VAULT_KEY_PATH="<%= @vault_key_path %>"
+
+VOLUME_GROUP_PATH="<%= @volume_group_path %>"
+DATA_VOL="<%= @data_vol %>"
+SNAPSHOT_RELATIVE_PATH="<%= @snapshot_relative_path %>"
+SNAPSHOT_DELTA_GB=<%= @snapshot_delta_gb %>
+
+PIGZ_PROCESSOR_COUNT=<%= @pigz_processor_count %>
+CLEANUP_OLD_DAYS=<%= @cleanup_old_days %>
+GPG_KEY_ID="<%= @gpg_key_id %>"
+
+TIER="<%= @tier %>"
+ROLE="<%= @role %>"
+
+#########################
+BACKUP_FILE_TIME=$(date +%Y-%m-%d_%H-%M-%S)
+TARBALL_BACKUP_PATH="${REMOTE_MOUNT_DIR}/${TIER}-${ROLE}/${HOSTNAME}"
+TARBALL_BACKUP_FILE="${BACKUP_FILE_TIME}.gz.gpg"
+SNAPSHOT_VOL="${DATA_VOL}_snapshot"
+LUKS_SNAPSHOT_VOL="${DATA_VOL}_luks_snapshot"
+LUKS_SNAPSHOT_MOUNTPOINT="/mnt/${LUKS_SNAPSHOT_VOL}"
+
+mongo_eval() {
+  $MONGO --port $MONGODB_PORT \
+    --username "${MONGODB_USERNAME}" \
+    --password "${MONGODB_PASSWORD}" \
+    --authenticationDatabase "${MONGODB_AUTHDB}" \
+    --eval $1
+}
+
+echo "------------------"
+echo
+
+BACKUP_START_TIME=`date +%s`
+
+echo "Locking MongoD instance"
+mongo_eval 'db.fsyncLock()'
+echo
+
+echo "Creating Snaphot"
+$LVCREATE --size "${SNAPSHOT_DELTA_GB}"G --snapshot "${VOLUME_GROUP_PATH}/${DATA_VOL}" --name "${SNAPSHOT_VOL}"
+echo
+
+echo "Unlocking MongoD instance"
+mongo_eval 'db.fsyncUnlock()'
+echo
+
+echo "Decrypting snapshot"
+VAULT_AUTH_DATA=$(curl \
+-X POST \
+-s \
+-H "Accept: application/json" \
+-H "Content-Type: application/json" \
+--data "{\"password\": \"${VAULT_PASSWORD}\"}" \
+-k \
+"${VAULT_API_URI}/auth/userpass/login/${VAULT_USERNAME}")
+VAULT_CLIENT_TOKEN=$(echo ${VAULT_AUTH_DATA}| python -c 'import json,sys;obj=json.load(sys.stdin);print obj["auth"]["client_token"]')
+
+VAULT_KEY_DATA=$(curl \
+-X GET \
+-s \
+-H "X-Vault-Token: ${VAULT_CLIENT_TOKEN}" \
+-H "Content-Type: application/json" \
+-k \
+"${VAULT_API_URI}/${VAULT_KEY_PATH}")
+VAULT_LUKS_KEY=$(echo ${VAULT_KEY_DATA} | python -c 'import json,sys;obj=json.load(sys.stdin);print obj["data"]["value"]')
+
+echo ${VAULT_LUKS_KEY} | \
+$CRYPTSETUP luksOpen --verbose \
+  "${VOLUME_GROUP_PATH}/${SNAPSHOT_VOL}" ${LUKS_SNAPSHOT_VOL}
+echo
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+
+  # We are backing up to a remote gluster or nfs filesystem, let's ensure it's mounted before we continue.
+  echo "verifying remote filesystem is mounted"
+
+  if grep -qs "${REMOTE_MOUNT_DIR}" /proc/mounts; then
+      echo "Remote Filesystem is mounted at ${REMOTE_MOUNT_DIR}"
+  else
+      echo "Mounting ${REMOTE_MOUNT_TYPE} ${REMOTE_MOUNT_DIR}"
+      mkdir -p "${REMOTE_MOUNT_DIR}"
+      mount -t "${REMOTE_MOUNT_TYPE}" "${REMOTE_VOLUME}" "${REMOTE_MOUNT_DIR}"
+  fi
+fi
+
+mkdir -p "${TARBALL_BACKUP_PATH}"
+echo
+
+echo "Mounting Snapshot"
+mkdir -p "${LUKS_SNAPSHOT_MOUNTPOINT}"
+mount -v -o nouuid,ro \
+  "/dev/mapper/${LUKS_SNAPSHOT_VOL}" \
+  "${LUKS_SNAPSHOT_MOUNTPOINT}"
+echo
+
+echo "Compressing and Encrypting data"
+$TAR \
+  -cf - "${LUKS_SNAPSHOT_MOUNTPOINT}/${SNAPSHOT_RELATIVE_PATH}" \
+  | \
+  
+pigz -9 -p ${PIGZ_PROCESSOR_COUNT} \
+| \
+
+$GPG \
+  --encrypt \
+  --recipient "${GPG_KEY_ID}" \
+  --trust-model always \
+  --batch > "${TARBALL_BACKUP_PATH}/${TARBALL_BACKUP_FILE}"
+
+BACKUP_END_TIME=`date +%s`
+BACKUP_TOTAL_TIME=`expr ${BACKUP_END_TIME} - ${BACKUP_START_TIME}`
+
+echo "Completed in: ${BACKUP_TOTAL_TIME}s"
+echo
+
+echo "Cleaning backups older than ${CLEANUP_OLD_DAYS} days"
+find ${TARBALL_BACKUP_PATH} -mtime +${CLEANUP_OLD_DAYS} -delete
+echo
+
+echo "Local cleanup"
+umount -v "${LUKS_SNAPSHOT_MOUNTPOINT}"
+rmdir "${LUKS_SNAPSHOT_MOUNTPOINT}"
+
+$CRYPTSETUP luksClose --verbose "${LUKS_SNAPSHOT_VOL}"
+$LVREMOVE -f "${VOLUME_GROUP_PATH}/${SNAPSHOT_VOL}"
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+  umount "${REMOTE_MOUNT_DIR}"
+  rmdir "${REMOTE_MOUNT_DIR}"
+fi

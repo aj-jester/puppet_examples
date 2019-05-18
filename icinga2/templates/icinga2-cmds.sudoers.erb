@@ -1,0 +1,6 @@
+Defaults:icinga !requiretty
+<% @sudoers.each do |cmd_alias_name, cmds| %>
+Cmnd_Alias <%= cmd_alias_name %>=<%= cmds.join(", ") %>
+<% end %>
+
+icinga ALL=(ALL) NOPASSWD: <%= @sudoers.keys.join(", ") %>

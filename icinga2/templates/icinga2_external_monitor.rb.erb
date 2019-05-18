@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+
+require 'net/https'
+require 'net/smtp'
+require 'socket'
+require 'json'
+require 'uri'
+
+module Icinga2ExternalMonitor
+
+  def self.config
+    {
+      'check_uri'     => 'status/IcingaApplication',
+      'hosts'         => ['<%= @master_host %>'] + <%= @satellite_hosts %>,
+      'notify_emails' => [
+        'systems@collectivei.com',
+        '3c2b5aab-de0a-4948-bd5b-9e4b8db36372+icinga2-techops@alert.victorops.com',
+      ],
+      'smtp_host'     => 'mailhub.ops.<%= @fqdn_location %>.ccmteam.com',
+      'api_username'  => 'status-stats',
+      'api_password'  => '<%= @api_creds['status-stats'] %>',
+    }
+  end
+
+  def self.get_unreachable host
+
+    uri = URI.parse "https://#{host}:5665/v1/#{self.config['check_uri']}"
+    headers = { 'Content-Type' => 'application/json' }
+    response_content = {}
+
+    begin
+      http = Net::HTTP.new uri.host, uri.port
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      http.read_timeout = 60
+      http.open_timeout = 60
+
+      request = Net::HTTP::Get.new uri.request_uri, headers
+      request.basic_auth self.config['api_username'], self.config['api_password']
+
+      response = http.request request
+      response_code = response.code.to_i
+
+      if response_code == 200
+        parsed_response = JSON.parse response.body
+
+        unless parsed_response['results'].first['status']['icingaapplication']['app']['node_name'] == host
+          response_content['host'] = host
+          response_content['body'] = parsed_response
+          response_content['code'] = response_code
+        end
+
+      else
+        response_content['host'] = host
+        response_content['body'] = response.body
+        response_content['code'] = response_code
+      end
+
+    rescue JSON::ParserError
+      response_content['host'] = host
+      response_content['body'] = 'Unable to parse JSON.'
+
+    rescue Timeout::Error
+      response_content['host'] = host
+      response_content['body'] = 'Timeout connecting to Icinga2 API.'
+
+    rescue Errno::EINVAL, Errno::ECONNRESET, EOFError, Errno::ECONNREFUSED,
+      Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError => e
+
+      response_content['host'] = host
+      response_content['body'] = "Net::HTTP: #{e.message}"
+    end
+
+    return response_content
+  end
+
+  def self.notify_email host
+
+    body_message = <<-BODY_MESSAGE
+From: Icinga2 External Monitor <icinga2@localhost>
+To: Systems
+MIME-Version: 1.0
+Content-type: text/plain
+Subject: Icinga2 process on host #{host} is CRITICAL
+
+Icinga2 process on host #{host} did not respond.
+
+Please check if Icinga2 process is running, if so resolve this alert manually.
+
+BODY_MESSAGE
+
+    begin
+      Net::SMTP.start(self.config['smtp_host']) do |smtp|
+        smtp.send_message body_message, "icinga2@localhost", self.config['notify_emails']
+      end
+
+    rescue IOError, Net::SMTPAuthenticationError, Net::SMTPServerBusy,
+      Net::SMTPUnknownError, TimeoutError => e
+      puts "Unable to send email: #{e.message}"
+      exit 1
+    end
+
+  end
+
+  def self.run!
+    unreachable_hosts = self.config['hosts'].reject { |host| self.get_unreachable(host).empty? }
+    unreachable_hosts.each { |host| self.notify_email host }
+  end
+
+end
+
+Icinga2ExternalMonitor.run!

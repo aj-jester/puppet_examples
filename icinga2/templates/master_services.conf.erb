@@ -1,0 +1,69 @@
+apply Service "icinga" {
+  import "generic-service"
+
+  check_command = "icinga"
+
+  assign where host.zone == "master"
+}
+
+apply Service "c-configrr-state-file" {
+  import "generic-service"
+
+  check_command = "configrr"
+
+  command_endpoint = host.name
+
+  vars.action = "state_file"
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["facter"]["tier"] == "icinga" && host.vars["facter"]["role"] == "master"
+}
+
+apply Service "c-configrr-last-run" {
+  import "generic-service"
+
+  check_command = "configrr"
+
+  command_endpoint = host.name
+
+  vars.action   = "last_run_h"
+  vars.warning  = 2
+  vars.critical = 4
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["facter"]["tier"] == "icinga" && host.vars["facter"]["role"] == "master"
+}
+
+apply Service "c-configrr-exec-time" {
+  import "generic-service"
+
+  check_command = "configrr"
+
+  command_endpoint = host.name
+
+  vars.action   = "exec_time_s"
+  vars.warning  = 30
+  vars.critical = 60
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["facter"]["tier"] == "icinga" && host.vars["facter"]["role"] == "master"
+}
+
+apply Service "c-configrr-render-time" {
+  import "generic-service"
+
+  check_command = "configrr"
+
+  command_endpoint = host.name
+
+  vars.action   = "render_time_ms"
+  vars.warning  = 200
+  vars.critical = 400
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["facter"]["tier"] == "icinga" && host.vars["facter"]["role"] == "master"
+}

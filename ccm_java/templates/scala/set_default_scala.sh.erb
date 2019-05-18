@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Warning: Managed by Puppet
+#
+
+EXTRACT_PATH="<%= @extract_path %>"
+DEFAULT_VERSION="<%= @default_version %>"
+
+# Set default scala.
+/usr/sbin/alternatives --install /usr/bin/scala scala ${EXTRACT_PATH}/scala-${DEFAULT_VERSION}/bin/scala 100
+/usr/sbin/alternatives --set scala ${EXTRACT_PATH}/scala-${DEFAULT_VERSION}/bin/scala
+
+# Get all installed scala alternatives except default version.
+scala_alternatives=$(/usr/sbin/alternatives --display scala | grep priority | grep -v ${DEFAULT_VERSION} | cut -d' ' -f1)
+
+# Remove scala alternatives that do not match the default version of scala.
+for scala_path in $scala_alternatives; do
+  /usr/sbin/alternatives --remove scala ${scala_path}
+done

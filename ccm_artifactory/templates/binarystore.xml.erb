@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ !!! WARNING !!!
+  ~ Managed by Puppet
+  -->
+<!--
+    This file configures Artifactory's binary provider
+  -->
+
+<!--
+  ~ TAKE CARE! Making changes to this file may result in losing binaries stored in Artifactory!
+  ~ If you are not sure of what you are doing, please hit up a member of the #sre team.
+  -->
+
+<config version="v1">
+<chain template="file-system">
+</chain>
+<provider id="file-system" type="file-system">
+    <fileStoreDir><%= @filestore %></fileStoreDir>
+    <tempDir>/temp</tempDir>
+</provider>
+</config>

@@ -1,0 +1,29 @@
+object Host "<%= @master_host %>" {
+  import "generic-host"
+  address = "<%= @master_host %>"
+
+  vars["facter"]["app-env"] = "<%= @facts['app_env'] %>"
+  vars["facter"]["ccm-interfaces-link-up"]["<%= @facts['ccm_interfaces_link_up'] %>"] = true
+  vars["facter"]["environment"] = "<%= @environment %>"
+  vars["facter"]["fqdn-location"] = "<%= @facts['fqdn_location'] %>"
+  vars["facter"]["tier"] = "<%= @tier %>"
+  vars["facter"]["role"] = "master"
+
+  vars["local"]["consul"] = true  
+}
+
+<% @satellite_hosts.each do |host| %>
+object Host "<%= host %>" {
+  import "generic-host"
+  address = "<%= host %>"
+
+  vars["facter"]["app-env"] = "<%= @facts['app_env'] %>"
+  vars["facter"]["ccm-interfaces-link-up"]["<%= @facts['ccm_interfaces_link_up'] %>"] = true
+  vars["facter"]["environment"] = "<%= @environment %>"
+  vars["facter"]["fqdn-location"] = "<%= @facts['fqdn_location'] %>"
+  vars["facter"]["tier"] = "<%= @tier %>"
+  vars["facter"]["role"] = "satellite"
+
+  vars["local"]["consul"] = true
+}
+<% end %>

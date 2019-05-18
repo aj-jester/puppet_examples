@@ -1,0 +1,7 @@
+#!/bin/bash
+
+config=$(date +<%= scope['ccm_profile::ldap::server::slapd_backup_directory'] %>/dc=config.\%F_\%T.ldif)
+slapcat -n 0 -l $config
+
+ccmteam=$(date +<%= scope['ccm_profile::ldap::server::slapd_backup_directory'] %>/dc=ccmteam,dc=com.\%F_\%T.ldif)
+slapcat -n 2 -l $ccmteam

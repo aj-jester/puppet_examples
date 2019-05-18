@@ -1,0 +1,666 @@
+apply Service "c-disk" {
+  import "generic-service"
+
+  check_command = "ccm-disk"
+
+  command_endpoint = host.name
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-serf-health" {
+  import "generic-service"
+
+  check_command = "consul-health"
+
+  command_endpoint = host.name
+  vars.checkid = "serfHealth"
+
+  if (host.vars["facter"]["fqdn-location"] == "iad1") {
+    vars.datacenter  = "iad1"
+  } else if (host.vars["facter"]["fqdn-location"] == "slc1") {
+    vars.datacenter  = "slc1"
+  }
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-ro-mounts" {
+  import "generic-service"
+
+  check_command = "ro-mounts"
+
+  command_endpoint = host.name
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service for (interface => val in host.vars["facter"]["ccm-interfaces-link-up"]) {
+  import "generic-service"
+
+  name = "c-ifx-" + interface
+
+  check_command = "iftrafficpy"
+
+  command_endpoint = host.name
+
+  display_name = "c-ifx-" + interface
+
+  vars.iftrafficpy_int = interface
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+}
+
+apply Service for (interface => val in host.vars["facter"]["ccm-interfaces-link-up"]) {
+  import "generic-service"
+
+  name = "c-ifln-" + interface
+
+  check_command = "iflink"
+
+  command_endpoint = host.name
+
+  display_name = "c-ifln-" + interface
+
+  vars.iflink_int = interface
+}
+
+apply Service "c-if-bond" {
+  import "generic-service"
+
+  check_command = "ifbond"
+
+  command_endpoint = host.name
+
+  assign where len(host.vars["facter"]["ccm-interfaces-link-up"]) >= 2
+}
+
+apply Service "c-mem" {
+  import "generic-service"
+
+  check_command = "memory"
+
+  command_endpoint = host.name
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-load" {
+  import "generic-service"
+
+  check_command = "load"
+
+  vars.load_wload1 = 35.0
+  vars.load_wload5 = 35.0
+  vars.load_wload15 = 35.0
+
+  vars.load_cload1 = 50.0
+  vars.load_cload5 = 50.0
+  vars.load_cload15 = 50.0
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_basic = false
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-ssh" {
+  import "generic-service"
+
+  check_command = "ssh"
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-users" {
+  import "generic-service"
+
+  check_command = "users"
+
+  command_endpoint = host.name
+
+  assign where host.vars["local"]["consul"] == true
+}
+
+apply Service "c-mdadm" {
+  import "generic-service"
+
+  check_command = "mdadm"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["ccm-raid"] == "mdadm"
+}
+
+apply Service "c-adaptec" {
+  import "generic-service"
+
+  check_command = "adaptec"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["ccm-raid"] == "adaptec"
+}
+
+apply Service "c-megaraid" {
+  import "generic-service"
+
+  check_command = "megaraid"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["ccm-raid"] == "megaraid"
+}
+
+apply Service "c-smartarray" {
+  import "generic-service"
+
+  check_command = "smartarray"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["ccm-raid"] == "smartarray"
+}
+
+apply Service "c-pseudo" {
+  import "generic-service"
+
+  check_command = "pseudo"
+
+  command_endpoint = host.name
+
+  vars.notify.victorops_warn_unknown = true
+
+  assign where host.vars["facter"]["tier"] == "ipa" && host.vars["facter"]["role"] == "server"
+  assign where host.name == "site-cdh17.prd.iad1.ccmteam.com"
+}
+
+apply Service "c-ntp-sync" {
+  import "generic-service"
+
+  check_command = "ntp-sync"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "glusterfs" && host.vars["facter"]["role"] == "server"
+}
+
+apply Service "c-mysql" {
+  import "generic-service"
+
+  check_command = "mysql"
+
+  command_endpoint = host.name
+
+  vars.mysql_hostname = "localhost"
+  vars.mysql_username = "icinga"
+  vars.mysql_password = "<%= @cmd_creds['mysql_icinga'] %>"
+
+  assign where host.vars["facter"]["tier"] == "mysql"
+}
+
+apply Service "c-mysql-replag" {
+  import "generic-service"
+
+  check_command = "mysql"
+
+  command_endpoint = host.name
+
+  vars.mysql_check_slave = true
+  vars.mysql_warning = 30
+  vars.mysql_critical = 60
+  vars.mysql_hostname = "localhost"
+  vars.mysql_username = "icinga"
+  vars.mysql_password = "<%= @cmd_creds['mysql_icinga'] %>"
+
+  assign where host.vars["facter"]["tier"] == "mysql" && host.vars["icinga"]["slave"] == true
+}
+
+apply Service "c-ossec-service" {
+  import "generic-service"
+
+  check_command = "ossec-plugin"
+
+  vars.service = "execd"
+
+  command_endpoint = host.name
+  assign where host.vars["facter"]["tier"] == "wazuh" && host.vars["facter"]["role"] == "manager"
+}
+
+apply Service "c-ossec-agents" {
+  import "generic-service"
+
+  check_command = "ossec-plugin"
+  command_endpoint = host.name
+
+  vars.warn    = 1
+  vars.crit    = 3
+  assign where host.vars["facter"]["tier"] == "wazuh" && host.vars["facter"]["role"] == "manager"
+}
+
+
+apply Service "c-wazuh-elkstack-health" {
+  import "generic-service"
+
+  check_command = "elasticsearch-health"
+
+  assign where host.vars["facter"]["tier"] == "wazuh" && host.vars["facter"]["role"] == "elkstack"
+}
+
+apply Service "c-pgsql-uptime" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "uptime"
+  vars.warning  = 900
+  vars.critical = 600
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-autovacuum" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "autovacuum"
+  vars.warning  = 10
+  vars.critical = 20
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-backends" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "backends"
+  vars.warning  = 150
+  vars.critical = 200
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-backends-status" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "backends_status"
+  vars.warning  = "active=150"
+  vars.critical = "active=200"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-bgwriter" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "bgwriter"
+  vars.warning  = "50%"
+  vars.critical = "80%"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-commit-ratio" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "commit_ratio"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-connection" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "connection"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-hit-ratio" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "hit_ratio"
+  vars.warning  = "80%"
+  vars.critical = "70%"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-locks" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "locks"
+  vars.warning  = "50"
+  vars.critical = "60"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-settings" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "settings"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-stat-snapshot-age" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "stat_snapshot_age"
+  vars.warning  = "1"
+  vars.critical = "2"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-table-unlogged" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "table_unlogged"
+
+  assign where host.vars["facter"]["tier"] == "pgsql"
+}
+
+apply Service "c-pgsql-is-replay-paused" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "is_replay_paused"
+  vars.warning  = "10s"
+  vars.critical = "20s"
+
+  assign where host.vars["facter"]["tier"] == "pgsql" && host.vars["icinga"]["slave"] == true
+}
+
+apply Service "c-pgsql-is-hot-standby" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "is_hot_standby"
+
+  assign where host.vars["facter"]["tier"] == "pgsql" && host.vars["icinga"]["slave"] == true
+}
+
+apply Service "c-pgsql-is-master" {
+  import "generic-service"
+
+  check_command = "postgresql-activity"
+
+  command_endpoint = host.name
+
+  vars.service  = "is_master"
+
+  assign where host.vars["facter"]["tier"] == "pgsql" && host.vars["icinga"]["master"] == true
+}
+
+apply Service "c-jenkins-nodes" {
+  import "generic-service"
+
+  check_command = "jenkins-nodes"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "jenkins" && host.vars["facter"]["role"] == "master"
+}
+
+apply Service "c-ipa-nodes" {
+  import "generic-service"
+
+  check_command = "ipa-cipa"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "ipa" && host.vars["facter"]["role"] == "server"
+}
+
+<% ['80', '443', '389', '636', '88', '464'].each do |port| %>
+apply Service "c-ipa-port-<%= port %>" {
+  import "generic-service"
+
+  check_command = "tcp"
+
+  vars.tcp_port = "<%= port %>"
+
+  assign where host.vars["facter"]["tier"] == "ipa" && host.vars["facter"]["role"] == "server"
+}
+<% end %>
+
+apply Service "c-mongodb-connect" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "30"
+  vars.crit   = "60"
+  vars.action = "connect"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-connections" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "70"
+  vars.crit   = "80"
+  vars.action = "connections"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-databases" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "200"
+  vars.crit   = "250"
+  vars.action = "databases"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-memory" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   ="275"
+  vars.crit   = "300"
+  vars.action = "memory"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-memory-mapped" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "5"
+  vars.crit   = "10"
+  vars.action = "memory_mapped"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-opcounters" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "1000"
+  vars.crit   = "1500"
+  vars.action = "opcounters"
+
+  vars.notify.mail_basic = false
+  vars.notify.victorops_basic = false
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-oplog" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "12"
+  vars.crit   = "3"
+  vars.action = "oplog"
+
+  command_endpoint = host.name
+
+  vars.notify.timeperiod = "workhours"
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-replication-lag" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "450"
+  vars.crit   = "900"
+  vars.action = "replication_lag"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-replset-state" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+  check_interval = 20m
+  retry_interval = 20m
+
+  vars.warn   = "0"
+  vars.crit   = "0"
+  vars.action = "replset_state"
+
+  vars.notify.victorops_warn_unknown = true
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-mongodb-collections" {
+  import "generic-service"
+
+  check_command = "mongodb-basic"
+
+  vars.warn   = "6000"
+  vars.crit   = "7500"
+  vars.action = "collections"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "mongo"
+}
+
+apply Service "c-dns" {
+  import "generic-service"
+
+  check_command = "dns"
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "dns"
+}
+
+apply Service "c-squid" {
+  import "generic-service"
+
+  check_command = "squid-test"
+
+  if (host.vars["facter"]["fqdn-location"] == "iad1") {
+    vars.proxy_server  = "proxy.ops.iad1.ccmteam.com"
+  } else if (host.vars["facter"]["fqdn-location"] == "slc1") {
+    vars.proxy_server  = "proxy.ops.slc1.ccmteam.com"
+  }
+
+  command_endpoint = host.name
+
+  assign where host.vars["facter"]["tier"] == "squid"
+}

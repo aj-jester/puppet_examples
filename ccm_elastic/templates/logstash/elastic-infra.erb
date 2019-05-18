@@ -1,0 +1,14 @@
+input {
+  beats {
+    port => 5044
+  }
+}
+
+output {
+ elasticsearch {
+    hosts => <%= scope['ccm_elastic::common::logstash_elasticsearch_hosts']  %>
+    manage_template => false
+    index => "%{[@metadata][beat]}-%{[@metadata][version]}-%{+YYYY.MM.dd}" 
+    document_type => "%{[@metadata][type]}" 
+  }
+}

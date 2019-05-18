@@ -1,0 +1,16 @@
+---
+cachedir: /opt/puppetlabs/server/data/puppetserver/r10k
+
+forge:
+  baseurl: 'https://forgeapi.puppet.com'
+  proxy: '<%= @proxy_url %>'
+
+git:
+  private_key: "/root/.ssh/ccm_r10k"
+  provider: rugged
+
+sources:
+  puppet:
+    basedir: /etc/puppetlabs/code/environments
+    prefix: false
+    remote: ssh://git@git.ccmteam.com:7999/pp/environments.git

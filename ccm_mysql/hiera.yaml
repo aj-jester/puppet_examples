@@ -1,0 +1,24 @@
+---
+version: 5
+defaults:
+  data_hash: yaml_data
+  datadir: data
+
+hierarchy:
+  - name: "Secret data: per-node, per-tier/role, per-datacenter, common"
+    lookup_key: eyaml_lookup_key
+    paths:
+      - "secrets/%{::fqdn_tier}/%{::fqdn_role}/env/%{::app_env}.eyaml"
+      - "secrets/%{::fqdn_tier}/%{::fqdn_role}/location/%{::fqdn_location}.eyaml"
+      - "secrets/%{::fqdn_tier}/%{::fqdn_role}/env/%{::app_env}.eyaml"
+      - "secrets/common.eyaml"
+    options:
+      pkcs7_private_key: /etc/puppetlabs/puppet/eyaml/private_key.pkcs7.pem
+      pkcs7_public_key:  /etc/puppetlabs/puppet/eyaml/public_key.pkcs7.pem
+
+  - name: "Normal data: per-node, per-tier/role, sudo, common"
+    paths:
+      - "%{::fqdn_tier}/%{::fqdn_role}/node/%{::fqdn}.yaml"
+      - "%{::fqdn_tier}/%{::fqdn_role}/location/%{::fqdn_location}.yaml"
+      - "%{::fqdn_tier}/%{::fqdn_role}/env/%{::app_env}.yaml"
+      - "common.yaml"

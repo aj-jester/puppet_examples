@@ -1,0 +1,23 @@
+# coding=utf-8
+import os
+
+# slack token
+token = '<%= @slack_token %>'
+
+# victorops
+vo_api_id = '<%= @vo_api_id %>'
+vo_api_key = '<%= @vo_api_key %>'
+
+# victorops headers
+headers = {
+    'X-VO-Api-Id': vo_api_id,
+    'X-VO-Api-Key': vo_api_key
+}
+
+BOT_NAME = '<%= @botname %>'
+
+# http image links for avatar
+icon_persona = '<%= @bot_avatar %>'
+
+# Proxy access
+proxies = dict(https="<%= @proxy -%>", http="<%= @proxy -%>")

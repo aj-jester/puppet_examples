@@ -1,0 +1,12 @@
+[Unit]
+Description=Slackbot helper for Warroom
+After=syslog.target network.target
+
+[Service]
+ExecStart=/bin/python /opt/slack_bot/slack_bot.py
+Type=simple
+PIDFile=/var/run/slack_bot.pid
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

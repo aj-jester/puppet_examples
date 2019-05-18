@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Warning: Managed by Puppet
+#
+
+EXTRACT_PATH="<%= @extract_path %>"
+DEFAULT_VERSION="<%= @default_version %>"
+
+# Set default Maven.
+/usr/sbin/alternatives --install /usr/bin/mvn mvn ${EXTRACT_PATH}/apache-maven-${DEFAULT_VERSION}/bin/mvn 100
+/usr/sbin/alternatives --set mvn ${EXTRACT_PATH}/apache-maven-${DEFAULT_VERSION}/bin/mvn
+
+# Get all installed Maven alternatives except default version.
+mvn_alternatives=$(/usr/sbin/alternatives --display mvn | grep priority | grep -v ${DEFAULT_VERSION} | cut -d' ' -f1)
+
+# Remove maven alternatives that do not match the default version of maven.
+for mvn_path in $mvn_alternatives; do
+  /usr/sbin/alternatives --remove mvn ${mvn_path}
+done

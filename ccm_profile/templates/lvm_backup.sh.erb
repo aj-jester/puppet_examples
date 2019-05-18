@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# Executables
+TAR=`which tar`
+LVCREATE=`which lvcreate`
+LVREMOVE=`which lvremove`
+GPG=`which gpg`
+
+#########################
+# Variables from Puppet #
+#########################
+REMOTE_MOUNT_TYPE="<%= @remote_mount_type %>"
+REMOTE_VOLUME="<%= @remote_volume %>"
+REMOTE_MOUNT_DIR="<%= @remote_mount_dir %>"
+
+VOLUME_GROUP_PATH="<%= @volume_group_path %>"
+DATA_VOL="<%= @data_vol %>"
+SNAPSHOT_RELATIVE_PATH="<%= @snapshot_relative_path %>"
+SNAPSHOT_DELTA_GB=<%= @snapshot_delta_gb %>
+
+PIGZ_PROCESSOR_COUNT=<%= @pigz_processor_count %>
+CLEANUP_OLD_DAYS=<%= @cleanup_old_days %>
+GPG_KEY_ID="<%= @gpg_key_id %>"
+
+TIER="<%= @tier %>"
+ROLE="<%= @role %>"
+
+#########################
+BACKUP_FILE_TIME=$(date +%Y-%m-%d_%H-%M-%S)
+TARBALL_BACKUP_PATH="${REMOTE_MOUNT_DIR}/${TIER}-${ROLE}/${HOSTNAME}"
+TARBALL_BACKUP_FILE="${BACKUP_FILE_TIME}.gz.gpg"
+SNAPSHOT_VOL="${DATA_VOL}_snapshot"
+SNAPSHOT_MOUNTPOINT="/mnt/${DATA_VOL}_snapshot"
+
+echo "------------------"
+echo
+
+BACKUP_START_TIME=`date +%s`
+
+echo "Creating Snaphot"
+$LVCREATE --size "${SNAPSHOT_DELTA_GB}"G --snapshot "${VOLUME_GROUP_PATH}/${DATA_VOL}" --name "${SNAPSHOT_VOL}"
+echo
+
+echo "Mounting Snapshot"
+mkdir -p "${SNAPSHOT_MOUNTPOINT}"
+mount -v -o nouuid,ro \
+  "${VOLUME_GROUP_PATH}/${SNAPSHOT_VOL}" \
+  "${SNAPSHOT_MOUNTPOINT}"
+echo
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+
+  # We are backing up to a remote gluster or nfs filesystem, let's ensure it's mounted before we continue.
+  echo "verifying remote filesystem is mounted"
+
+  if grep -qs "${REMOTE_MOUNT_DIR}" /proc/mounts; then
+      echo "Remote Filesystem is mounted at ${REMOTE_MOUNT_DIR}"
+  else
+      echo "Mounting ${REMOTE_MOUNT_TYPE} ${REMOTE_MOUNT_DIR}"
+      mkdir -p "${REMOTE_MOUNT_DIR}"
+      mount -t "${REMOTE_MOUNT_TYPE}" "${REMOTE_VOLUME}" "${REMOTE_MOUNT_DIR}"
+  fi
+fi
+
+mkdir -p "${TARBALL_BACKUP_PATH}"
+echo
+
+echo "Compressing and Encrypting directory"
+$TAR \
+  -cf - "${SNAPSHOT_MOUNTPOINT}/${SNAPSHOT_RELATIVE_PATH}" \
+  | \
+  
+pigz -9 -p ${PIGZ_PROCESSOR_COUNT} \
+| \
+
+$GPG \
+  --encrypt \
+  --recipient "${GPG_KEY_ID}" \
+  --trust-model always \
+  --batch > "${TARBALL_BACKUP_PATH}/${TARBALL_BACKUP_FILE}"
+
+BACKUP_END_TIME=`date +%s`
+BACKUP_TOTAL_TIME=`expr ${BACKUP_END_TIME} - ${BACKUP_START_TIME}`
+
+echo "Completed in: ${BACKUP_TOTAL_TIME}s"
+echo
+
+echo "Cleaning backups older than ${CLEANUP_OLD_DAYS} days"
+find ${TARBALL_BACKUP_PATH} -mtime +${CLEANUP_OLD_DAYS} -delete
+echo
+
+echo "Local cleanup"
+umount -v "${SNAPSHOT_MOUNTPOINT}"
+rmdir "${SNAPSHOT_MOUNTPOINT}"
+$LVREMOVE -f "${VOLUME_GROUP_PATH}/${SNAPSHOT_VOL}"
+
+if [[ $REMOTE_MOUNT_TYPE != "local" ]]; then
+  umount "${REMOTE_MOUNT_DIR}"
+  rmdir "${REMOTE_MOUNT_DIR}"
+fi

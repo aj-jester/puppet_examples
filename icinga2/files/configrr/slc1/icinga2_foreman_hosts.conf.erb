@@ -1,0 +1,46 @@
+<% foreman_hosts.each do |host, data| %>
+<% if data['location'] == 'SLC1' %>
+object Host "<%= host %>" {
+  import "generic-host"
+  address = "<%= host %>"
+  notes_url = "https://foreman.ccmteam.com/hosts/<%= host %>"
+
+<% data.each do |data_key, data_val| %>
+<% if data_key == 'ccm_interfaces_link_up' %>
+<% data_val.split(",").each do |split_val| %>
+  vars.<%= data_key %>["<%= split_val %>"] = true
+<% end %>
+<% elsif ['true', 'false'].include?(data_val) %>
+  vars.<%= data_key %> = <%= data_val %>
+<% else %>
+  vars.<%= data_key %> = "<%= data_val %>"
+<% end %>
+<% end %>
+
+  vars.has_agent = true
+
+  vars.ping_wpl = 40
+  vars.ping_cpl = 60
+}
+
+<%
+if data['is_virtual'] == 'false'
+  bmc_host = host.split(".").insert(1, 'bmc').join(".")
+%>
+object Host "<%= bmc_host %>" {
+  import "generic-host"
+  address = "<%= bmc_host %>"
+  notes_url = "https://foreman.ccmteam.com/hosts/<%= host %>"
+
+  vars.bmc_type = "ipmi"
+  vars.has_agent = false
+  vars.is_virtual = false
+  vars.ccm_env = "<%= data['ccm_env']  %>"
+
+  vars.ping_wpl = 40
+  vars.ping_cpl = 60
+}
+<% end %>
+
+<% end %>
+<% end %>

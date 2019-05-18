@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# R10K deploy script
+
+# Executables
+R10K="/usr/bin/scl enable rh-ruby24 -- ruby /opt/rh/rh-ruby24/root/usr/local/bin/r10k"
+
+set -o nounset
+set -o errexit
+
+### HEADER ###
+ 
+LOCKFILE="/var/lock/`basename $0`"
+LOCKFD=99
+ 
+# PRIVATE
+_lock()             { flock -$1 $LOCKFD; }
+_no_more_locking()  { _lock u; _lock xn && rm -f $LOCKFILE; }
+_prepare_locking()  { eval "exec $LOCKFD>\"$LOCKFILE\""; trap _no_more_locking EXIT; }
+ 
+# ON START
+_prepare_locking
+
+# PUBLIC
+# obtain an exclusive lock immediately or fail
+exlock_now() { _lock xn; }
+
+# slack notification
+slack_notify() {
+  status_message=$1
+  status_code=$2
+
+  if [ "$status_code" -eq 0 ]
+  then
+    status_color="good"
+  elif [ "$status_code" -eq 99 ]
+  then
+    status_color="warning"
+  else
+    status_color="danger"
+  fi
+
+body=$(cat << EOF
+{
+  "username": "R10K",
+  "icon_emoji": ":comet:",
+  "attachments":
+  [
+    {
+      "fallback": "R10K BOT",
+      "color": "$status_color",
+      "fields":
+      [
+        {
+          "title": "Node",
+          "value": "<%= @fqdn %>",
+          "short": false
+        },
+        {
+          "title": "Environments",
+          "value": "$environments",
+          "short": true
+        },
+        {
+          "title": "Status",
+          "value": "$status_message [$status_code]",
+          "short": true
+        }
+      ]
+    }
+  ]
+}
+EOF
+)
+
+  # Slack API call
+  curl --proxy <%= @proxy_url %> -X POST -s --data-urlencode "payload=$body" <%= @slack_webhook %> > /dev/null
+
+}
+
+ctrl_c() {
+  slack_notify "ABORTED" 1
+  (>&2 echo "Deploy aborted.")
+  exit 1
+}
+
+### BEGIN R10K DEPLOY ###
+
+trap ctrl_c INT
+
+# Environments
+environments="$@"
+
+# Acquire lock
+if exlock_now; then
+
+  slack_notify "DEPLOYING" 99
+
+  # Deploy
+  $R10K deploy environment $environments -p -v >> /var/log/puppetlabs/puppet/r10k.log 2>&1
+  r10k_retval=$?
+
+  if [ "$r10k_retval" -eq 0 ]
+  then
+    slack_notify "SUCCESSFUL" 0
+    echo "Deploy successful."
+  else
+    slack_notify "FAILED" $r10k_retval
+    (>&2 echo "Deploy failed, see log.")
+  fi
+
+  exit $r10k_retval
+
+else
+
+  { echo "R10K deploy in progress...retry in a few."; exit 1; }
+
+fi
